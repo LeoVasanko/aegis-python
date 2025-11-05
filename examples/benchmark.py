@@ -45,7 +45,7 @@ def bench_encrypt(alg_name: str, a) -> None:
 
     t0 = time.perf_counter()
     for _ in range(ITERATIONS):
-        a.encrypt(nonce, key, mview, None, maclen=maclen, into=buf)
+        a.encrypt(key, nonce, mview, None, maclen=maclen, into=buf)
     t1 = time.perf_counter()
 
     # Prevent any unrealistic optimization assumptions
@@ -66,7 +66,7 @@ def bench_mac(alg_name: str, a) -> None:
     buf = bytearray(MSG_LEN)
     buf[:] = _random_bytes(len(buf))
 
-    mac0 = a.Mac(nonce, key)
+    mac0 = a.Mac(key, nonce)
     mac_out = bytearray(a.ABYTES_MAX)
 
     t0 = time.perf_counter()

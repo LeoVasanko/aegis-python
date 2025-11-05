@@ -30,9 +30,9 @@ def demo():
 
     # Detached encrypt/decrypt
     ciphertext, mac = a.encrypt_detached(
-        nonce, key, message, associated_data, maclen=16
+        key, nonce, message, associated_data, maclen=16
     )
-    plaintext = a.decrypt_detached(nonce, key, ciphertext, mac, associated_data)
+    plaintext = a.decrypt_detached(key, nonce, ciphertext, mac, associated_data)
     print(
         "detached enc: c=",
         hx(ciphertext),
@@ -43,30 +43,30 @@ def demo():
     )
 
     # Attached encrypt/decrypt
-    ciphertext_with_tag = a.encrypt(nonce, key, message, associated_data, maclen=32)
-    plaintext2 = a.decrypt(nonce, key, ciphertext_with_tag, associated_data, maclen=32)
+    ciphertext_with_tag = a.encrypt(key, nonce, message, associated_data, maclen=32)
+    plaintext2 = a.decrypt(key, nonce, ciphertext_with_tag, associated_data, maclen=32)
     print(
         "attached enc: ct=", hx(ciphertext_with_tag), " dec_ok=", plaintext2 == message
     )
 
     # Stream generation (None nonce allowed) -> deterministic for a given key
     stream = bytearray(64)
-    a.stream(None, key, into=stream)
+    a.stream(key, None, into=stream)
     print("stream (first 16 bytes):", hx(stream, 16))
 
     # Unauthenticated mode round-trip (INSECURE; compatibility only)
     c2 = bytearray(len(message))
-    a.encrypt_unauthenticated(message, nonce, key, into=c2)
+    a.encrypt_unauthenticated(key, nonce, message, into=c2)
     m2 = bytearray(len(message))
-    a.decrypt_unauthenticated(c2, nonce, key, into=m2)
+    a.decrypt_unauthenticated(key, nonce, c2, into=m2)
     print("unauth round-trip ok:", bytes(m2) == message)
 
     # MAC: compute then verify
-    mac_state = a.Mac(nonce, key)
+    mac_state = a.Mac(key, nonce)
     mac_state.update(message)
     mac32 = mac_state.final(32)
 
-    mac_verify_state = a.Mac(nonce, key)
+    mac_verify_state = a.Mac(key, nonce)
     mac_verify_state.update(message)
     try:
         mac_verify_state.verify(mac32)
@@ -81,7 +81,7 @@ def demo():
         src = bytearray(total)
         dst = bytearray(total)
         t0 = time.perf_counter()
-        a.encrypt_unauthenticated(src, nonce, key, into=dst)
+        a.encrypt_unauthenticated(key, nonce, src, into=dst)
         t1 = time.perf_counter()
         secs = t1 - t0
         gib = total / float(1 << 30)
