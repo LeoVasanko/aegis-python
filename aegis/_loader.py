@@ -14,12 +14,9 @@ Exports:
 - alloc_aligned(size, alignment): return (void*) pointer with requested alignment
 """
 
-from __future__ import annotations
-
 import os
 import sys
-from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from cffi import FFI
 
@@ -410,34 +407,6 @@ ffi.cdef(
 )
 
 
-def _candidate_paths() -> Iterable[str]:
-    # 1) Explicit override
-    p = os.environ.get("AEGIS_LIB_PATH")
-    if p:
-        yield p
-
-    # 2) Directory override
-    d = os.environ.get("AEGIS_LIB_DIR")
-    if d:
-        yield str(Path(d) / _platform_lib_name())
-
-    # 3) Local builds relative to this file
-    here = Path(__file__).resolve()
-    repo_root = here.parents[2]  # python/aegis/_loader.py -> repo root
-    for rel in (
-        "build-shared-clang/libaegis.so",
-        "build-shared/libaegis.so",
-        "build/libaegis.so",
-        "zig-out/lib/libaegis.so",
-    ):
-        path = repo_root / rel
-        if path.exists():
-            yield str(path)
-
-    # 4) Let the dynamic loader search system paths
-    yield _platform_lib_name()  # e.g. "libaegis.so" or "aegis"
-
-
 def _platform_lib_name() -> str:
     if sys.platform.startswith("linux"):
         return "libaegis.so"
@@ -449,20 +418,13 @@ def _platform_lib_name() -> str:
 
 
 def _load_libaegis():
-    last_err: Exception | None = None
-    for cand in _candidate_paths():
-        try:
-            lib = ffi.dlopen(str(cand))
-            return lib
-        except Exception as e:  # try next candidate
-            last_err = e
-            continue
-    # If we get here, we couldn't load the library
-    hint = (
-        "Set AEGIS_LIB_PATH to the full path of libaegis or AEGIS_LIB_DIR to the folder "
-        "containing it, or install libaegis system-wide."
-    )
-    raise OSError(f"Could not load libaegis: {last_err}\n{hint}")
+    # Let the dynamic loader search system paths
+    try:
+        lib = ffi.dlopen(_platform_lib_name())
+        return lib
+    except Exception as e:
+        hint = "Install libaegis system-wide."
+        raise OSError(f"Could not load libaegis: {e}\n{hint}")
 
 
 def _load_libc():

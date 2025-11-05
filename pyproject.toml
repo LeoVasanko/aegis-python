@@ -15,6 +15,9 @@ classifiers = [
   "Operating System :: OS Independent",
   "Topic :: Security :: Cryptography",
 ]
+dependencies = [
+    "cffi>=2.0.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/aegis-aead/libaegis"
