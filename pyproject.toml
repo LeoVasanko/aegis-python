@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "aegis"
+version = "0.1.0"
+description = "Python bindings for libaegis (links to system library)"
+requires-python = ">=3.12"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "License :: OSI Approved :: ISC License (ISCL)",
+  "Operating System :: OS Independent",
+  "Topic :: Security :: Cryptography",
+]
+
+[project.urls]
+Homepage = "https://github.com/aegis-aead/libaegis"
