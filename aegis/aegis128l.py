@@ -18,6 +18,7 @@ NPUBBYTES = _lib.aegis128l_npubbytes()
 ABYTES_MIN = _lib.aegis128l_abytes_min()
 ABYTES_MAX = _lib.aegis128l_abytes_max()
 TAILBYTES_MAX = _lib.aegis128l_tailbytes_max()
+ALIGNMENT = 32
 
 
 def _ptr(buf):
@@ -33,10 +34,11 @@ def _ptr(buf):
 
 
 def encrypt_detached(
-    nonce: Buffer,
     key: Buffer,
+    nonce: Buffer,
     message: Buffer,
     ad: Buffer | None = None,
+    *,
     maclen: int = ABYTES_MIN,
     ct_into: Buffer | None = None,
     mac_into: Buffer | None = None,
@@ -44,8 +46,8 @@ def encrypt_detached(
     """Encrypt message with associated data, returning ciphertext and MAC separately.
 
     Args:
-        nonce: Nonce (32 bytes).
         key: Key (32 bytes).
+        nonce: Nonce (32 bytes).
         message: The plaintext message to encrypt.
         ad: Associated data (optional).
         maclen: MAC length (16 or 32, default 16).
@@ -99,18 +101,19 @@ def encrypt_detached(
 
 
 def decrypt_detached(
-    nonce: Buffer,
     key: Buffer,
+    nonce: Buffer,
     ct: Buffer,
     mac: Buffer,
     ad: Buffer | None = None,
+    *,
     into: Buffer | None = None,
 ) -> memoryview:
     """Decrypt ciphertext with detached MAC and associated data.
 
     Args:
-        nonce: Nonce (32 bytes).
         key: Key (32 bytes).
+        nonce: Nonce (32 bytes).
         ct: The ciphertext to decrypt.
         mac: The MAC to verify.
         ad: Associated data (optional).
@@ -158,18 +161,19 @@ def decrypt_detached(
 
 
 def encrypt(
-    nonce: Buffer,
     key: Buffer,
+    nonce: Buffer,
     message: Buffer,
     ad: Buffer | None = None,
+    *,
     maclen: int = ABYTES_MIN,
     into: Buffer | None = None,
 ) -> memoryview:
     """Encrypt message with associated data, returning ciphertext with appended MAC.
 
     Args:
-        nonce: Nonce (32 bytes).
         key: Key (32 bytes).
+        nonce: Nonce (32 bytes).
         message: The plaintext message to encrypt.
         ad: Associated data (optional).
         maclen: MAC length (16 or 32, default 16).
@@ -216,18 +220,19 @@ def encrypt(
 
 
 def decrypt(
-    nonce: Buffer,
     key: Buffer,
+    nonce: Buffer,
     ct: Buffer,
     ad: Buffer | None = None,
+    *,
     maclen: int = ABYTES_MIN,
     into: Buffer | None = None,
 ) -> memoryview:
     """Decrypt ciphertext with appended MAC and associated data.
 
     Args:
-        nonce: Nonce (32 bytes).
         key: Key (32 bytes).
+        nonce: Nonce (32 bytes).
         ct: The ciphertext with MAC to decrypt.
         ad: Associated data (optional).
         maclen: MAC length (16 or 32, default 16).
@@ -274,16 +279,17 @@ def decrypt(
 
 
 def stream(
-    nonce: Buffer | None,
     key: Buffer,
+    nonce: Buffer | None,
     length: int | None = None,
+    *,
     into: Buffer | None = None,
 ) -> memoryview:
     """Generate a stream of pseudorandom bytes.
 
     Args:
-        nonce: Nonce (32 bytes, uses zeroes for nonce if None).
         key: Key (32 bytes).
+        nonce: Nonce (32 bytes, uses zeroes for nonce if None).
         length: Number of bytes to generate (required if into is None).
         into: Buffer to write stream into (default: bytearray created).
 
@@ -314,17 +320,18 @@ def stream(
 
 
 def encrypt_unauthenticated(
-    message: Buffer,
-    nonce: Buffer,
     key: Buffer,
+    nonce: Buffer,
+    message: Buffer,
+    *,
     into: Buffer | None = None,
 ) -> memoryview:
     """Encrypt message without authentication (for testing/debugging).
 
     Args:
-        message: The plaintext message to encrypt.
-        nonce: Nonce (32 bytes).
         key: Key (32 bytes).
+        nonce: Nonce (32 bytes).
+        message: The plaintext message to encrypt.
         into: Buffer to write ciphertext into (default: bytearray created).
 
     Returns:
@@ -356,17 +363,18 @@ def encrypt_unauthenticated(
 
 
 def decrypt_unauthenticated(
-    ct: Buffer,
-    nonce: Buffer,
     key: Buffer,
+    nonce: Buffer,
+    ct: Buffer,
+    *,
     into: Buffer | None = None,
 ) -> memoryview:
     """Decrypt ciphertext without authentication (for testing/debugging).
 
     Args:
-        ct: The ciphertext to decrypt.
-        nonce: Nonce (32 bytes).
         key: Key (32 bytes).
+        nonce: Nonce (32 bytes).
+        ct: The ciphertext to decrypt.
         into: Buffer to write plaintext into (default: bytearray created).
 
     Returns:
@@ -399,56 +407,56 @@ def decrypt_unauthenticated(
 
 # This is missing from C API but convenient to have here
 def mac(
-    data: Buffer,
-    nonce: Buffer,
     key: Buffer,
+    nonce: Buffer,
+    data: Buffer,
     maclen: int = ABYTES_MIN,
 ) -> memoryview:
     """Compute a MAC for the given data in one shot.
 
     Args:
-        data: Data to MAC
-        nonce: Nonce (32 bytes)
         key: Key (32 bytes)
+        nonce: Nonce (32 bytes)
+        data: Data to MAC
         maclen: MAC length (16 or 32, default 16)
 
     Returns:
         MAC bytes
     """
-    mac_state = Mac(nonce, key)
+    mac_state = Mac(key, nonce)
     mac_state.update(data)
     return mac_state.final(maclen)
 
 
 class Mac:
-    """AEGIS-256X4 MAC state wrapper.
+    """AEGIS-128L MAC state wrapper.
 
     Usage:
-        mac = Mac(nonce, key)
+        mac = Mac(key, nonce)
         mac.update(data)
         tag = mac.final()  # defaults to 16-byte MAC
         # or verify:
-        mac2 = Mac(nonce, key); mac2.update(data); mac2.verify(tag)
+        mac2 = Mac(key, nonce); mac2.update(data); mac2.verify(tag)
     """
 
     __slots__ = ("_st", "_nonce", "_key")
 
     def __init__(
         self,
-        nonce: Buffer,
         key: Buffer,
+        nonce: Buffer,
         _other=None,
     ) -> None:
         """Initialize a MAC state with a nonce and key.
 
         Args:
-            nonce: Nonce (32 bytes).
             key: Key (32 bytes).
+            nonce: Nonce (32 bytes).
 
         Raises:
             TypeError: If key or nonce lengths are invalid.
         """
-        raw = alloc_aligned(ffi.sizeof("aegis128l_mac_state"), 32)
+        raw = alloc_aligned(ffi.sizeof("aegis128l_mac_state"), ALIGNMENT)
         st = ffi.cast("aegis128l_mac_state *", raw)
         self._st = ffi.gc(st, libc.free)
         if _other is not None:
@@ -553,12 +561,12 @@ class Encryptor:
 
     __slots__ = ("_st",)
 
-    def __init__(self, nonce: Buffer, key: Buffer, ad: Buffer | None = None):
+    def __init__(self, key: Buffer, nonce: Buffer, ad: Buffer | None = None):
         """Create an incremental encryptor.
 
         Args:
-            nonce: Nonce (32 bytes).
             key: Key (32 bytes).
+            nonce: Nonce (32 bytes).
             ad: Associated data to bind to the encryption (optional).
 
         Raises:
@@ -570,7 +578,7 @@ class Encryptor:
             raise TypeError(f"key length must be {KEYBYTES}")
         if nonce.nbytes != NPUBBYTES:
             raise TypeError(f"nonce length must be {NPUBBYTES}")
-        raw = alloc_aligned(ffi.sizeof("aegis128l_state"), 32)
+        raw = alloc_aligned(ffi.sizeof("aegis128l_state"), ALIGNMENT)
         st = ffi.cast("aegis128l_state *", raw)
         st = ffi.gc(st, libc.free)
         _lib.aegis128l_state_init(
@@ -704,12 +712,12 @@ class Decryptor:
 
     __slots__ = ("_st",)
 
-    def __init__(self, nonce: Buffer, key: Buffer, ad: Buffer | None = None):
+    def __init__(self, key: Buffer, nonce: Buffer, ad: Buffer | None = None):
         """Create an incremental decryptor for detached tags.
 
         Args:
-            nonce: Nonce (32 bytes).
             key: Key (32 bytes).
+            nonce: Nonce (32 bytes).
             ad: Associated data used during encryption (optional).
 
         Raises:
@@ -721,7 +729,7 @@ class Decryptor:
             raise TypeError(f"key length must be {KEYBYTES}")
         if nonce.nbytes != NPUBBYTES:
             raise TypeError(f"nonce length must be {NPUBBYTES}")
-        raw = alloc_aligned(ffi.sizeof("aegis128l_state"), 32)
+        raw = alloc_aligned(ffi.sizeof("aegis128l_state"), ALIGNMENT)
         st = ffi.cast("aegis128l_state *", raw)
         st = ffi.gc(st, libc.free)
         _lib.aegis128l_state_init(
@@ -812,15 +820,15 @@ def new_state():
 
     The returned object is an ffi cdata pointer with automatic finalizer.
     """
-    # Allocate with 64-byte alignment using libc.posix_memalign
-    raw = alloc_aligned(ffi.sizeof("aegis128l_state"), 32)
+    # Allocate with required alignment using libc.posix_memalign
+    raw = alloc_aligned(ffi.sizeof("aegis128l_state"), ALIGNMENT)
     ptr = ffi.cast("aegis128l_state *", raw)
     return ffi.gc(ptr, libc.free)
 
 
 def new_mac_state():
     """Allocate and return a new aegis128l_mac_state* with proper alignment."""
-    raw = alloc_aligned(ffi.sizeof("aegis128l_mac_state"), 32)
+    raw = alloc_aligned(ffi.sizeof("aegis128l_mac_state"), ALIGNMENT)
     ptr = ffi.cast("aegis128l_mac_state *", raw)
     return ffi.gc(ptr, libc.free)
 
@@ -832,6 +840,7 @@ __all__ = [
     "ABYTES_MIN",
     "ABYTES_MAX",
     "TAILBYTES_MAX",
+    "ALIGNMENT",
     # one-shot functions
     "encrypt_detached",
     "decrypt_detached",
