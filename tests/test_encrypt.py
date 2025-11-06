@@ -2,13 +2,8 @@ import json
 from pathlib import Path
 from sys import stderr
 
-import aegis.aegis128l
-import aegis.aegis128x2
-import aegis.aegis128x4
-import aegis.aegis256
-import aegis.aegis256x2
-import aegis.aegis256x4
 import pytest
+from pyaegis import aegis128l, aegis128x2, aegis128x4, aegis256, aegis256x2, aegis256x4
 
 from .util import random_split_bytes
 
@@ -20,12 +15,12 @@ def load_encryption_test_vectors():
 
     # Map filename to algorithm module
     algorithm_files = {
-        "aegis-128l-test-vectors.json": aegis.aegis128l,
-        "aegis-128x2-test-vectors.json": aegis.aegis128x2,
-        "aegis-128x4-test-vectors.json": aegis.aegis128x4,
-        "aegis-256-test-vectors.json": aegis.aegis256,
-        "aegis-256x2-test-vectors.json": aegis.aegis256x2,
-        "aegis-256x4-test-vectors.json": aegis.aegis256x4,
+        "aegis-128l-test-vectors.json": aegis128l,
+        "aegis-128x2-test-vectors.json": aegis128x2,
+        "aegis-128x4-test-vectors.json": aegis128x4,
+        "aegis-256-test-vectors.json": aegis256,
+        "aegis-256x2-test-vectors.json": aegis256x2,
+        "aegis-256x4-test-vectors.json": aegis256x4,
     }
 
     for filename, alg_module in algorithm_files.items():

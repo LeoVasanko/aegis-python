@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "cffi>=2.0.0"]
 build-backend = "hatchling.build"
 
 [project]
@@ -26,3 +26,13 @@ Homepage = "https://github.com/aegis-aead/libaegis"
 dev = [
     "pytest>=8.4.2",
 ]
+
+[tool.hatch.build.hooks.custom]
+# Placeholder build hook for compiling libaegis with Zig during wheel builds.
+# The actual Zig build is intentionally not executed yet.
+path = "tools/build_hook.py"
+
+[tool.hatch.build.targets.wheel]
+# Ensure only the Python package is included by default; native artifacts
+# will be added by the build hook once implemented.
+packages = ["pyaegis"]

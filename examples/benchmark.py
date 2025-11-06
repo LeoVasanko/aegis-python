@@ -12,7 +12,7 @@ Output format and throughput units mirror the Zig benchmark (Mb/s).
 import os
 import time
 
-from aegis import aegis128l, aegis128x2, aegis128x4, aegis256, aegis256x2, aegis256x4
+from pyaegis import aegis128l, aegis128x2, aegis128x4, aegis256, aegis256x2, aegis256x4
 
 MSG_LEN = 16384000  # 16 MiB
 ITERATIONS = 100
