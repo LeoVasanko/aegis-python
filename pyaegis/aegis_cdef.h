@@ -9,8 +9,8 @@ int aegis_verify_16(const uint8_t *x, const uint8_t *y) ;
 int aegis_verify_32(const uint8_t *x, const uint8_t *y) ;
 
 /* aegis128l.h */
-typedef struct aegis128l_state { uint8_t opaque[256]; } aegis128l_state;
-typedef struct aegis128l_mac_state { uint8_t opaque[384]; } aegis128l_mac_state;
+typedef struct aegis128l_state { ...; } aegis128l_state;
+typedef struct aegis128l_mac_state { ...; } aegis128l_mac_state;
 size_t aegis128l_keybytes(void);
 size_t aegis128l_npubbytes(void);
 size_t aegis128l_abytes_min(void);
@@ -103,8 +103,8 @@ void aegis128l_mac_reset(aegis128l_mac_state *st_);
 void aegis128l_mac_state_clone(aegis128l_mac_state *dst, const aegis128l_mac_state *src);
 
 /* aegis128x2.h */
-typedef struct aegis128x2_state { uint8_t opaque[448]; } aegis128x2_state;
-typedef struct aegis128x2_mac_state { uint8_t opaque[704]; } aegis128x2_mac_state;
+typedef struct aegis128x2_state { ...; } aegis128x2_state;
+typedef struct aegis128x2_mac_state { ...; } aegis128x2_mac_state;
 size_t aegis128x2_keybytes(void);
 size_t aegis128x2_npubbytes(void);
 size_t aegis128x2_abytes_min(void);
@@ -197,8 +197,8 @@ void aegis128x2_mac_reset(aegis128x2_mac_state *st_);
 void aegis128x2_mac_state_clone(aegis128x2_mac_state *dst, const aegis128x2_mac_state *src);
 
 /* aegis128x4.h */
-typedef struct aegis128x4_state { uint8_t opaque[832]; } aegis128x4_state;
-typedef struct aegis128x4_mac_state { uint8_t opaque[1344]; } aegis128x4_mac_state;
+typedef struct aegis128x4_state { ...; } aegis128x4_state;
+typedef struct aegis128x4_mac_state { ...; } aegis128x4_mac_state;
 size_t aegis128x4_keybytes(void);
 size_t aegis128x4_npubbytes(void);
 size_t aegis128x4_abytes_min(void);
@@ -291,8 +291,8 @@ void aegis128x4_mac_reset(aegis128x4_mac_state *st_);
 void aegis128x4_mac_state_clone(aegis128x4_mac_state *dst, const aegis128x4_mac_state *src);
 
 /* aegis256.h */
-typedef struct aegis256_state { uint8_t opaque[192]; } aegis256_state;
-typedef struct aegis256_mac_state { uint8_t opaque[288]; } aegis256_mac_state;
+typedef struct aegis256_state { ...; } aegis256_state;
+typedef struct aegis256_mac_state { ...; } aegis256_mac_state;
 size_t aegis256_keybytes(void);
 size_t aegis256_npubbytes(void);
 size_t aegis256_abytes_min(void);
@@ -385,8 +385,8 @@ void aegis256_mac_reset(aegis256_mac_state *st_);
 void aegis256_mac_state_clone(aegis256_mac_state *dst, const aegis256_mac_state *src);
 
 /* aegis256x2.h */
-typedef struct aegis256x2_state { uint8_t opaque[320]; } aegis256x2_state;
-typedef struct aegis256x2_mac_state { uint8_t opaque[512]; } aegis256x2_mac_state;
+typedef struct aegis256x2_state { ...; } aegis256x2_state;
+typedef struct aegis256x2_mac_state { ...; } aegis256x2_mac_state;
 size_t aegis256x2_keybytes(void);
 size_t aegis256x2_npubbytes(void);
 size_t aegis256x2_abytes_min(void);
@@ -479,8 +479,8 @@ void aegis256x2_mac_reset(aegis256x2_mac_state *st_);
 void aegis256x2_mac_state_clone(aegis256x2_mac_state *dst, const aegis256x2_mac_state *src);
 
 /* aegis256x4.h */
-typedef struct aegis256x4_state { uint8_t opaque[576]; } aegis256x4_state;
-typedef struct aegis256x4_mac_state { uint8_t opaque[960]; } aegis256x4_mac_state;
+typedef struct aegis256x4_state { ...; } aegis256x4_state;
+typedef struct aegis256x4_mac_state { ...; } aegis256x4_mac_state;
 size_t aegis256x4_keybytes(void);
 size_t aegis256x4_npubbytes(void);
 size_t aegis256x4_abytes_min(void);

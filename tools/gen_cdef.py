@@ -34,8 +34,18 @@ def clean_declaration(text: str) -> str:
         if text == old:
             break
 
-    # Remove CRYPTO_ALIGN(...)
-    text = re.sub(r"CRYPTO_ALIGN\s*\(\s*\d+\s*\)", "", text)
+    # For structs with CRYPTO_ALIGN, replace the field with "...;" to make it flexible
+    # This tells CFFI to use the C compiler's alignment instead of calculating it
+    if "CRYPTO_ALIGN" in text and "typedef struct" in text:
+        # Replace "CRYPTO_ALIGN(N) uint8_t opaque[SIZE];" with "...;"
+        text = re.sub(
+            r"CRYPTO_ALIGN\s*\(\s*\d+\s*\)\s+uint8_t\s+opaque\[\d+\];",
+            "...;",
+            text
+        )
+    else:
+        # For non-struct declarations, just remove CRYPTO_ALIGN
+        text = re.sub(r"CRYPTO_ALIGN\s*\(\s*\d+\s*\)", "", text)
 
     # Normalize whitespace but preserve structure
     lines = []
