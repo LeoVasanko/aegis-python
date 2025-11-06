@@ -6,6 +6,7 @@ Changes per variant:
 - Replace module name (aegis256x4 -> target)
 - Replace label (AEGIS-256X4 -> target label like AEGIS-128L)
 - Replace only the ALIGNMENT = <int> value
+- Replace only the RATE = <int> value
 
 We do not touch alloc_aligned(...) calls or any code formatting. Blank lines
 after ALIGNMENT are preserved.
@@ -35,10 +36,21 @@ VARIANT_ALIGN = {
     "aegis128x4": 64,
 }
 
+# Variants and their RATE values
+VARIANT_RATE = {
+    "aegis256": 16,
+    "aegis256x2": 32,
+    "aegis256x4": 64,
+    "aegis128l": 32,
+    "aegis128x2": 64,
+    "aegis128x4": 128,
+}
+
 TEMPLATE_NAME = "aegis256x4"
 TEMPLATE_LABEL = "AEGIS-256X4"
 
 ALIGNMENT_LINE_RE = re.compile(r"^(ALIGNMENT\s*=\s*)(\d+)(\s*)$", re.MULTILINE)
+RATE_LINE_RE = re.compile(r"^(RATE\s*=\s*)(\d+)(\s*)$", re.MULTILINE)
 
 
 def set_alignment_only(text: str, value: int) -> str:
@@ -53,6 +65,20 @@ def set_alignment_only(text: str, value: int) -> str:
         return f"{prefix}{value}{suffix}"
 
     return ALIGNMENT_LINE_RE.sub(_sub, text)
+
+
+def set_rate_only(text: str, value: int) -> str:
+    """Replace only the numeric RATE value, preserving surrounding whitespace and lines.
+
+    This preserves any empty lines following the RATE assignment because
+    the line ending is not part of the match; we keep any trailing spaces too.
+    """
+
+    def _sub(m: re.Match[str]) -> str:
+        prefix, _num, suffix = m.group(1), m.group(2), m.group(3)
+        return f"{prefix}{value}{suffix}"
+
+    return RATE_LINE_RE.sub(_sub, text)
 
 
 def algo_label(name: str) -> str:
@@ -70,6 +96,9 @@ def generate_variant(template_src: str, variant: str) -> str:
     # 3) set ALIGNMENT constant value using fallback map
     align_value = VARIANT_ALIGN.get(variant, 64)
     s = set_alignment_only(s, align_value)
+    # 4) set RATE constant value using fallback map
+    rate_value = VARIANT_RATE.get(variant, 64)
+    s = set_rate_only(s, rate_value)
     return s
 
 

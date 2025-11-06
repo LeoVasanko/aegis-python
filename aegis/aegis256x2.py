@@ -19,6 +19,7 @@ ABYTES_MIN = _lib.aegis256x2_abytes_min()
 ABYTES_MAX = _lib.aegis256x2_abytes_max()
 TAILBYTES_MAX = _lib.aegis256x2_tailbytes_max()
 ALIGNMENT = 32
+RATE = 32
 
 
 def calc_update_output_size(bytes_in: int, bytes_next: int) -> int:
@@ -31,8 +32,7 @@ def calc_update_output_size(bytes_in: int, bytes_next: int) -> int:
     Returns:
         Number of bytes that the next update will write.
     """
-    remainder = bytes_in % ALIGNMENT
-    return ((remainder + int(bytes_next)) // ALIGNMENT) * ALIGNMENT
+    return (((bytes_in % RATE) + bytes_next) // RATE) * RATE
 
 
 def _ptr(buf):
@@ -651,7 +651,7 @@ class Encryptor:
                 f"state encrypt update failed: {err_name} written {written[0]}"
             )
         w = int(written[0])
-        # Advance counters for this update call
+        assert w == expected_out
         self._bytes_in += message.nbytes
         self._bytes_out += w
         return out[:w]
@@ -810,11 +810,10 @@ class Decryptor:
             RuntimeError: If the C update call fails.
         """
         ct = memoryview(ct)
-        produced = calc_update_output_size(self._bytes_in, ct.nbytes)
-        requirement = produced + ALIGNMENT  # libaegis requires larger than actual w
-        out = into if into is not None else bytearray(requirement)
+        expected_out = calc_update_output_size(self._bytes_in, ct.nbytes)
+        out = into if into is not None else bytearray(expected_out)
         out = memoryview(out)
-        if out.nbytes < requirement:
+        if out.nbytes < expected_out:
             raise TypeError("into length must be >= required capacity for this update")
         written = ffi.new("size_t *")
         rc = _lib.aegis256x2_state_decrypt_detached_update(
@@ -830,6 +829,7 @@ class Decryptor:
             err_name = errno.errorcode.get(err_num, f"errno_{err_num}")
             raise RuntimeError(f"state decrypt update failed: {err_name}")
         w = int(written[0])
+        assert w == expected_out
         self._bytes_in += ct.nbytes
         self._bytes_out += w
         return out[:w]
@@ -898,6 +898,7 @@ __all__ = [
     "ABYTES_MAX",
     "TAILBYTES_MAX",
     "ALIGNMENT",
+    "RATE",
     # helpers
     "calc_update_output_size",
     # one-shot functions
