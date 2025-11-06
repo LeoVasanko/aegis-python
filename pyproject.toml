@@ -21,3 +21,8 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/aegis-aead/libaegis"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+]
