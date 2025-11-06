@@ -1,0 +1,6 @@
+.*
+*.lock
+*.egg-info
+/dist
+/pyaegis/build
+__pycache__
