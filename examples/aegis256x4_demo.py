@@ -10,7 +10,7 @@ Covers:
 
 import time
 
-from aegis import aegis256x4 as a
+from pyaegis import aegis256x4 as a
 
 
 def hx(b, limit: int | None = None) -> str:

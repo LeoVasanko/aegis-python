@@ -1,13 +1,8 @@
 import json
 from pathlib import Path
 
-import aegis.aegis128l
-import aegis.aegis128x2
-import aegis.aegis128x4
-import aegis.aegis256
-import aegis.aegis256x2
-import aegis.aegis256x4
 import pytest
+from pyaegis import aegis128l, aegis128x2, aegis128x4, aegis256, aegis256x2, aegis256x4
 
 from .util import random_split_bytes
 
@@ -24,17 +19,17 @@ def load_mac_test_vectors():
 def get_algorithm_module(name):
     """Map test vector name to algorithm module."""
     if "128L" in name:
-        return aegis.aegis128l
+        return aegis128l
     elif "128X2" in name:
-        return aegis.aegis128x2
+        return aegis128x2
     elif "128X4" in name:
-        return aegis.aegis128x4
+        return aegis128x4
     elif "256" in name and "256X2" not in name and "256X4" not in name:
-        return aegis.aegis256
+        return aegis256
     elif "256X2" in name:
-        return aegis.aegis256x2
+        return aegis256x2
     elif "256X4" in name:
-        return aegis.aegis256x4
+        return aegis256x4
     else:
         raise ValueError(f"Unknown algorithm in test vector name: {name}")
 
