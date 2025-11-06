@@ -26,19 +26,6 @@ ALIGNMENT = 64
 RATE = 128
 
 
-def calc_update_output_size(bytes_in: int, bytes_next: int) -> int:
-    """Calculate the number of bytes output by the next incremental update.
-
-    Args:
-        bytes_in: Total number of bytes passed to update so far.
-        bytes_next: Length of the next input chunk.
-
-    Returns:
-        Number of bytes that the next update will write.
-    """
-    return (((bytes_in % RATE) + bytes_next) // RATE) * RATE
-
-
 def _ptr(buf):
     return ffi.NULL if buf is None else ffi.from_buffer(buf)
 
@@ -631,8 +618,7 @@ class Encryptor:
             RuntimeError: If the C update call fails.
         """
         message = memoryview(message)
-        # Compute exact number of bytes this update can emit (multiple of ALIGNMENT)
-        expected_out = calc_update_output_size(self._bytes_in, message.nbytes)
+        expected_out = message.nbytes
         out = memoryview(into if into is not None else bytearray(expected_out))
         if out.nbytes < expected_out:
             raise TypeError(
@@ -812,7 +798,7 @@ class Decryptor:
             RuntimeError: If the C update call fails.
         """
         ct = memoryview(ct)
-        expected_out = calc_update_output_size(self._bytes_in, ct.nbytes)
+        expected_out = ct.nbytes
         out = into if into is not None else bytearray(expected_out)
         out = memoryview(out)
         if out.nbytes < expected_out:
@@ -893,8 +879,6 @@ __all__ = [
     "TAILBYTES_MAX",
     "ALIGNMENT",
     "RATE",
-    # helpers
-    "calc_update_output_size",
     # one-shot functions
     "encrypt_detached",
     "decrypt_detached",
