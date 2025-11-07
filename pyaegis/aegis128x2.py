@@ -10,6 +10,7 @@ Error return codes from the C library raise ValueError.
 # DO NOT EDIT OTHER ALGORITHM FILES MANUALLY!
 
 import errno
+import secrets
 
 from ._loader import ffi
 from ._loader import lib as _lib
@@ -23,6 +24,16 @@ ABYTES_MAX = _lib.aegis128x2_abytes_max()
 TAILBYTES_MAX = _lib.aegis128x2_tailbytes_max()
 ALIGNMENT = 64
 RATE = 64
+
+
+def random_key() -> bytes:
+    """Generate a random key using cryptographically secure random bytes."""
+    return secrets.token_bytes(KEYBYTES)
+
+
+def random_nonce() -> bytes:
+    """Generate a random nonce using cryptographically secure random bytes."""
+    return secrets.token_bytes(NPUBBYTES)
 
 
 def _ptr(buf):
@@ -39,11 +50,11 @@ def encrypt_detached(
     ct_into: Buffer | None = None,
     mac_into: Buffer | None = None,
 ) -> tuple[bytearray | memoryview, bytearray | memoryview]:
-    """Encrypt message with associated data, returning ciphertext and MAC separately.
+    f"""Encrypt message with associated data, returning ciphertext and MAC separately.
 
     Args:
-        key: Key (32 bytes).
-        nonce: Nonce (32 bytes).
+        key: Key ({KEYBYTES=}).
+        nonce: Nonce ({NPUBBYTES=}).
         message: The plaintext message to encrypt.
         ad: Associated data (optional).
         maclen: MAC length (16 or 32, default 16).
@@ -95,7 +106,7 @@ def encrypt_detached(
     return (
         c if ct_into is None else memoryview(c)[: len(message)],
         mac if mac_into is None else memoryview(mac)[:maclen],
-    )
+    )  # type: ignore
 
 
 def decrypt_detached(
@@ -107,11 +118,11 @@ def decrypt_detached(
     *,
     into: Buffer | None = None,
 ) -> bytearray | memoryview:
-    """Decrypt ciphertext with detached MAC and associated data.
+    f"""Decrypt ciphertext with detached MAC and associated data.
 
     Args:
-        key: Key (32 bytes).
-        nonce: Nonce (32 bytes).
+        key: Key ({KEYBYTES=}).
+        nonce: Nonce ({NPUBBYTES=}).
         ct: The ciphertext to decrypt.
         mac: The MAC to verify.
         ad: Associated data (optional).
@@ -163,11 +174,11 @@ def encrypt(
     maclen: int = ABYTES_MIN,
     into: Buffer | None = None,
 ) -> bytearray | memoryview:
-    """Encrypt message with associated data, returning ciphertext with appended MAC.
+    f"""Encrypt message with associated data, returning ciphertext with appended MAC.
 
     Args:
-        key: Key (32 bytes).
-        nonce: Nonce (32 bytes).
+        key: Key ({KEYBYTES=}).
+        nonce: Nonce ({NPUBBYTES=}).
         message: The plaintext message to encrypt.
         ad: Associated data (optional).
         maclen: MAC length (16 or 32, default 16).
@@ -219,11 +230,11 @@ def decrypt(
     maclen: int = ABYTES_MIN,
     into: Buffer | None = None,
 ) -> bytearray | memoryview:
-    """Decrypt ciphertext with appended MAC and associated data.
+    f"""Decrypt ciphertext with appended MAC and associated data.
 
     Args:
-        key: Key (32 bytes).
-        nonce: Nonce (32 bytes).
+        key: Key ({KEYBYTES=}).
+        nonce: Nonce ({NPUBBYTES=}).
         ct: The ciphertext with MAC to decrypt.
         ad: Associated data (optional).
         maclen: MAC length (16 or 32, default 16).
@@ -276,11 +287,11 @@ def stream(
     *,
     into: Buffer | None = None,
 ) -> bytearray | Buffer:
-    """Generate a stream of pseudorandom bytes.
+    f"""Generate a stream of pseudorandom bytes.
 
     Args:
-        key: Key (32 bytes).
-        nonce: Nonce (32 bytes, uses zeroes for nonce if None).
+        key: Key ({KEYBYTES=}).
+        nonce: Nonce ({NPUBBYTES=}, uses zeroes for nonce if None).
         length: Number of bytes to generate (required if into is None).
         into: Buffer to write stream into (default: bytearray created).
 
@@ -318,11 +329,11 @@ def encrypt_unauthenticated(
     *,
     into: Buffer | None = None,
 ) -> bytearray | memoryview:
-    """Encrypt message without authentication (for testing/debugging).
+    f"""Encrypt message without authentication (for testing/debugging).
 
     Args:
-        key: Key (32 bytes).
-        nonce: Nonce (32 bytes).
+        key: Key ({KEYBYTES=}).
+        nonce: Nonce ({NPUBBYTES=}).
         message: The plaintext message to encrypt.
         into: Buffer to write ciphertext into (default: bytearray created).
 
@@ -359,11 +370,11 @@ def decrypt_unauthenticated(
     *,
     into: Buffer | None = None,
 ) -> bytearray | memoryview:
-    """Decrypt ciphertext without authentication (for testing/debugging).
+    f"""Decrypt ciphertext without authentication (for testing/debugging).
 
     Args:
-        key: Key (32 bytes).
-        nonce: Nonce (32 bytes).
+        key: Key ({KEYBYTES=}).
+        nonce: Nonce ({NPUBBYTES=}).
         ct: The ciphertext to decrypt.
         into: Buffer to write plaintext into (default: bytearray created).
 
@@ -401,11 +412,11 @@ def mac(
     maclen: int = ABYTES_MIN,
     into: Buffer | None = None,
 ) -> bytearray | memoryview:
-    """Compute a MAC for the given data in one shot.
+    f"""Compute a MAC for the given data in one shot.
 
     Args:
-        key: Key (32 bytes)
-        nonce: Nonce (32 bytes)
+        key: Key ({KEYBYTES=})
+        nonce: Nonce ({NPUBBYTES=})
         data: Data to MAC
         maclen: MAC length (16 or 32, default 16)
         into: Buffer to write MAC into (default: bytearray created)
@@ -437,11 +448,11 @@ class Mac:
         nonce: Buffer,
         _other=None,
     ) -> None:
-        """Initialize a MAC state with a nonce and key.
+        f"""Initialize a MAC state with a nonce and key.
 
         Args:
-            key: Key (32 bytes).
-            nonce: Nonce (32 bytes).
+            key: Key ({KEYBYTES=}).
+            nonce: Nonce ({NPUBBYTES=}).
 
         Raises:
             TypeError: If key or nonce lengths are invalid.
@@ -551,11 +562,11 @@ class Encryptor:
     __slots__ = ("_st", "_owner", "_bytes_in", "_bytes_out")
 
     def __init__(self, key: Buffer, nonce: Buffer, ad: Buffer | None = None):
-        """Create an incremental encryptor.
+        f"""Create an incremental encryptor.
 
         Args:
-            key: Key (32 bytes).
-            nonce: Nonce (32 bytes).
+            key: Key ({KEYBYTES=}).
+            nonce: Nonce ({NPUBBYTES=}).
             ad: Associated data to bind to the encryption (optional).
 
         Raises:
@@ -685,11 +696,11 @@ class Decryptor:
     __slots__ = ("_st", "_owner", "_bytes_in", "_bytes_out")
 
     def __init__(self, key: Buffer, nonce: Buffer, ad: Buffer | None = None):
-        """Create an incremental decryptor for detached tags.
+        f"""Create an incremental decryptor for detached tags.
 
         Args:
-            key: Key (32 bytes).
-            nonce: Nonce (32 bytes).
+            key: Key ({KEYBYTES=}).
+            nonce: Nonce ({NPUBBYTES=}).
             ad: Associated data used during encryption (optional).
 
         Raises:
