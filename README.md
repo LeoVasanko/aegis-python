@@ -193,6 +193,47 @@ Run the built-in benchmark to see which variant is fastest on your machine:
 python -m pyaegis.benchmark
 ```
 
+Benchmarks of the Python module and the C library run on Intel i7-14700, linux, single core (the software is not multithreaded). Note that the results are in megabits per second, not bytes. The CPU lacks AVX-512 that makes the X4 variants faster on AMD hardware.
+
+<table>
+<tr>
+<td>
+```bash
+$ python -m pyaegis.benchmark
+AEGIS-256        107666.56 Mb/s
+AEGIS-256X2      191314.53 Mb/s
+AEGIS-256X4      211537.44 Mb/s
+AEGIS-128L       159074.08 Mb/s
+AEGIS-128X2      307332.53 Mb/s
+AEGIS-128X4      230106.70 Mb/s
+AEGIS-128L MAC   206082.24 Mb/s
+AEGIS-128X2 MAC  366401.20 Mb/s
+AEGIS-128X4 MAC  375011.51 Mb/s
+AEGIS-256 MAC    110187.03 Mb/s
+AEGIS-256X2 MAC  210063.51 Mb/s
+AEGIS-256X4 MAC  347406.96 Mb/s
+```
+</td>
+<td>
+```bash
+$ ./libaegis/zig-out/bin/benchmark
+AEGIS-256        107820.86 Mb/s
+AEGIS-256X2      205025.57 Mb/s
+AEGIS-256X4      223361.81 Mb/s
+AEGIS-128L       187530.77 Mb/s
+AEGIS-128X2      354003.14 Mb/s
+AEGIS-128X4      218596.59 Mb/s
+AEGIS-128L MAC   224276.49 Mb/s
+AEGIS-128X2 MAC  417741.65 Mb/s
+AEGIS-128X4 MAC  410454.05 Mb/s
+AEGIS-256 MAC    116776.62 Mb/s
+AEGIS-256X2 MAC  224150.04 Mb/s
+AEGIS-256X4 MAC  392088.05 Mb/s
+```
+</td>
+</tr>
+</table>
+
 ## Errors
 
 - Authentication failures raise ValueError.

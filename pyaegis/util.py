@@ -10,7 +10,7 @@ from typing import Protocol
 
 from ._loader import ffi
 
-__all__ = ["new_aligned_struct", "aligned_address", "Buffer"]
+__all__ = ["new_aligned_struct", "aligned_address", "Buffer", "nonce_increment"]
 
 try:
     from collections.abc import Buffer as _Buffer
@@ -45,3 +45,19 @@ def new_aligned_struct(ctype: str, alignment: int) -> tuple[object, object]:
     aligned_uc = ffi.addressof(base, offset)
     ptr = ffi.cast(f"{ctype} *", aligned_uc)
     return ptr, base
+
+
+def nonce_increment(nonce: Buffer) -> None:
+    """Increment the nonce in place using little-endian byte order.
+
+    Useful for generating unique nonces for each consecutive message.
+
+    Args:
+        nonce: The nonce buffer to increment (modified in place).
+    """
+    n = memoryview(nonce)
+    for i in range(len(n)):
+        if n[i] < 255:
+            n[i] += 1
+            return
+        n[i] = 0

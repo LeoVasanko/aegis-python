@@ -7,7 +7,7 @@ import secrets
 
 from ._loader import ffi
 from ._loader import lib as _lib
-from .util import Buffer, new_aligned_struct
+from .util import Buffer, new_aligned_struct, nonce_inc_inplace
 
 # Constants exposed as functions in C; mirror them as integers at module import time
 KEYBYTES = _lib.aegis256x2_keybytes()
@@ -19,14 +19,14 @@ ALIGNMENT = 32
 RATE = 32
 
 
-def random_key() -> bytes:
+def random_key() -> bytearray:
     """Generate a random key using cryptographically secure random bytes."""
-    return secrets.token_bytes(KEYBYTES)
+    return bytearray(secrets.token_bytes(KEYBYTES))
 
 
-def random_nonce() -> bytes:
+def random_nonce() -> bytearray:
     """Generate a random nonce using cryptographically secure random bytes."""
-    return secrets.token_bytes(NPUBBYTES)
+    return bytearray(secrets.token_bytes(NPUBBYTES))
 
 
 def _ptr(buf):
@@ -802,6 +802,10 @@ __all__ = [
     "TAILBYTES_MAX",
     "ALIGNMENT",
     "RATE",
+    # utility functions
+    "random_key",
+    "random_nonce",
+    "nonce_inc_inplace",
     # one-shot functions
     "encrypt_detached",
     "decrypt_detached",
