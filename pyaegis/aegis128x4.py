@@ -1,11 +1,4 @@
-"""aegis128x4 Python submodule.
-
-Simplified API: single functions can return newly allocated buffers or write
-into user-provided buffers via optional `into=` (and `mac_into=` for detached).
-
-Error return codes from the C library raise ValueError.
-"""
-
+"""AEGIS-128X4"""
 # All modules are generated from aegis128x4.py by tools/gen_modules.py!
 # DO NOT EDIT OTHER ALGORITHM FILES MANUALLY!
 
@@ -529,14 +522,14 @@ class Mac:
             raise RuntimeError(f"mac final failed: {err_name}")
         return out if into is None else memoryview(out)[:maclen]  # type: ignore
 
-    def verify(self, mac: Buffer) -> bool:
+    def verify(self, mac: Buffer):
         """Verify a tag for the current MAC state.
 
         Args:
             mac: The tag to verify (16 or 32 bytes).
 
         Returns:
-            True if verification succeeds.
+            Only if verification succeeds.
 
         Raises:
             TypeError: If tag length is invalid.
@@ -548,7 +541,6 @@ class Mac:
         rc = _lib.aegis128x4_mac_verify(self._st, _ptr(mac), maclen)
         if rc != 0:
             raise ValueError("mac verification failed")
-        return True
 
 
 class Encryptor:
