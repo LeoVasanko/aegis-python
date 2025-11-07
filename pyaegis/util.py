@@ -6,9 +6,22 @@ on libc/posix_memalign. Memory is owned by Python; C code only borrows it.
 
 from __future__ import annotations
 
+from typing import Protocol
+
 from ._loader import ffi
 
-__all__ = ["new_aligned_struct", "aligned_address"]
+__all__ = ["new_aligned_struct", "aligned_address", "Buffer"]
+
+try:
+    from collections.abc import Buffer as _Buffer
+
+    class Buffer(_Buffer, Protocol):  # type: ignore[misc]
+        def __len__(self) -> int: ...
+except ImportError:
+
+    class Buffer(Protocol):
+        def __len__(self) -> int: ...
+        def __buffer__(self, flags: int) -> memoryview: ...
 
 
 def aligned_address(obj) -> int:

@@ -10,11 +10,10 @@ Error return codes from the C library raise ValueError.
 # DO NOT EDIT OTHER ALGORITHM FILES MANUALLY!
 
 import errno
-from collections.abc import Buffer
 
 from ._loader import ffi
 from ._loader import lib as _lib
-from .util import new_aligned_struct
+from .util import Buffer, new_aligned_struct
 
 # Constants exposed as functions in C; mirror them as integers at module import time
 KEYBYTES = _lib.aegis256_keybytes()
@@ -39,7 +38,7 @@ def encrypt_detached(
     maclen: int = ABYTES_MIN,
     ct_into: Buffer | None = None,
     mac_into: Buffer | None = None,
-) -> tuple[memoryview, memoryview]:
+) -> tuple[bytearray | memoryview, bytearray | memoryview]:
     """Encrypt message with associated data, returning ciphertext and MAC separately.
 
     Args:
@@ -58,35 +57,34 @@ def encrypt_detached(
         TypeError: If lengths are invalid.
         RuntimeError: If encryption fails.
     """
-    nonce = memoryview(nonce)
-    key = memoryview(key)
-    message = memoryview(message)
-    ad = memoryview(ad) if ad is not None else None
-    ct_into = memoryview(ct_into) if ct_into is not None else None
-    mac_into = memoryview(mac_into) if mac_into is not None else None
-
     if maclen not in (16, 32):
         raise TypeError("maclen must be 16 or 32")
-    if key.nbytes != KEYBYTES:
+    if len(key) != KEYBYTES:
         raise TypeError(f"key length must be {KEYBYTES}")
-    if nonce.nbytes != NPUBBYTES:
+    if len(nonce) != NPUBBYTES:
         raise TypeError(f"nonce length must be {NPUBBYTES}")
 
-    c = ct_into if ct_into is not None else memoryview(bytearray(message.nbytes))
-    mac = mac_into if mac_into is not None else memoryview(bytearray(maclen))
-    if c.nbytes != message.nbytes:
-        raise TypeError("into length must equal len(message)")
-    if mac.nbytes != maclen:
-        raise TypeError("mac_into length must equal maclen")
+    if ct_into is None:
+        c = bytearray(len(message))
+    else:
+        if len(ct_into) < len(message):
+            raise TypeError("ct_into length must be at least len(message)")
+        c = ct_into
+    if mac_into is None:
+        mac = bytearray(maclen)
+    else:
+        if len(mac_into) < maclen:
+            raise TypeError("mac_into length must be at least maclen")
+        mac = mac_into
 
     rc = _lib.aegis256_encrypt_detached(
         ffi.from_buffer(c),
         ffi.from_buffer(mac),
         maclen,
         _ptr(message),
-        message.nbytes,
+        len(message),
         _ptr(ad),
-        0 if ad is None else ad.nbytes,
+        0 if ad is None else len(ad),
         _ptr(nonce),
         _ptr(key),
     )
@@ -94,7 +92,10 @@ def encrypt_detached(
         err_num = ffi.errno
         err_name = errno.errorcode.get(err_num, f"errno_{err_num}")
         raise RuntimeError(f"encrypt detached failed: {err_name}")
-    return c, mac
+    return (
+        c if ct_into is None else memoryview(c)[: len(message)],
+        mac if mac_into is None else memoryview(mac)[:maclen],
+    )
 
 
 def decrypt_detached(
@@ -105,7 +106,7 @@ def decrypt_detached(
     ad: Buffer | None = None,
     *,
     into: Buffer | None = None,
-) -> memoryview:
+) -> bytearray | memoryview:
     """Decrypt ciphertext with detached MAC and associated data.
 
     Args:
@@ -117,44 +118,40 @@ def decrypt_detached(
         into: Buffer to write plaintext into (default: bytearray created).
 
     Returns:
-        Plaintext as bytearray if into not provided.
+        Plaintext as bytearray if into not provided, memoryview of into otherwise.
 
     Raises:
         TypeError: If lengths are invalid.
         ValueError: If authentication fails.
     """
-    nonce = memoryview(nonce)
-    key = memoryview(key)
-    ct = memoryview(ct)
-    mac = memoryview(mac)
-    ad = memoryview(ad) if ad is not None else None
-    into = memoryview(into) if into is not None else None
-
-    if key.nbytes != KEYBYTES:
+    if len(key) != KEYBYTES:
         raise TypeError(f"key length must be {KEYBYTES}")
-    if nonce.nbytes != NPUBBYTES:
+    if len(nonce) != NPUBBYTES:
         raise TypeError(f"nonce length must be {NPUBBYTES}")
-    maclen = mac.nbytes
+    maclen = len(mac)
     if maclen not in (16, 32):
         raise TypeError("mac length must be 16 or 32")
-    m_out = into if into is not None else memoryview(bytearray(ct.nbytes))
-    if m_out.nbytes != ct.nbytes:
-        raise TypeError("into length must equal len(ciphertext)")
+    if into is None:
+        out = bytearray(len(ct))
+    else:
+        if len(into) < len(ct):
+            raise TypeError("into length must be at least len(ciphertext)")
+        out = into
 
     rc = _lib.aegis256_decrypt_detached(
-        ffi.from_buffer(m_out),
+        ffi.from_buffer(out),
         _ptr(ct),
-        ct.nbytes,
+        len(ct),
         _ptr(mac),
         maclen,
         _ptr(ad),
-        0 if ad is None else ad.nbytes,
+        0 if ad is None else len(ad),
         _ptr(nonce),
         _ptr(key),
     )
     if rc != 0:
         raise ValueError("authentication failed")
-    return memoryview(m_out)
+    return out if into is None else memoryview(out)[: len(ct)]  # type: ignore
 
 
 def encrypt(
@@ -165,7 +162,7 @@ def encrypt(
     *,
     maclen: int = ABYTES_MIN,
     into: Buffer | None = None,
-) -> memoryview:
+) -> bytearray | memoryview:
     """Encrypt message with associated data, returning ciphertext with appended MAC.
 
     Args:
@@ -177,35 +174,32 @@ def encrypt(
         into: Buffer to write ciphertext+MAC into (default: bytearray created).
 
     Returns:
-        Ciphertext with appended MAC as bytearray if into not provided.
+        Ciphertext with appended MAC as bytearray if into not provided, memoryview of into otherwise.
 
     Raises:
         TypeError: If lengths are invalid.
         RuntimeError: If encryption fails.
     """
-    nonce = memoryview(nonce)
-    key = memoryview(key)
-    message = memoryview(message)
-    ad = memoryview(ad) if ad is not None else None
-    into = memoryview(into) if into is not None else None
-
     if maclen not in (16, 32):
         raise TypeError("maclen must be 16 or 32")
-    if key.nbytes != KEYBYTES:
+    if len(key) != KEYBYTES:
         raise TypeError(f"key length must be {KEYBYTES}")
-    if nonce.nbytes != NPUBBYTES:
+    if len(nonce) != NPUBBYTES:
         raise TypeError(f"nonce length must be {NPUBBYTES}")
-    out = into if into is not None else memoryview(bytearray(message.nbytes + maclen))
-    if out.nbytes != message.nbytes + maclen:
-        raise TypeError("into length must be len(message)+maclen")
+    if into is None:
+        out = bytearray(len(message) + maclen)
+    else:
+        if len(into) < len(message) + maclen:
+            raise TypeError("into length must be at least len(message)+maclen")
+        out = into
 
     rc = _lib.aegis256_encrypt(
         ffi.from_buffer(out),
         maclen,
         _ptr(message),
-        message.nbytes,
+        len(message),
         _ptr(ad),
-        0 if ad is None else ad.nbytes,
+        0 if ad is None else len(ad),
         _ptr(nonce),
         _ptr(key),
     )
@@ -213,7 +207,7 @@ def encrypt(
         err_num = ffi.errno
         err_name = errno.errorcode.get(err_num, f"errno_{err_num}")
         raise RuntimeError(f"encrypt failed: {err_name}")
-    return out
+    return out if into is None else memoryview(out)[: len(message) + maclen]  # type: ignore
 
 
 def decrypt(
@@ -224,7 +218,7 @@ def decrypt(
     *,
     maclen: int = ABYTES_MIN,
     into: Buffer | None = None,
-) -> memoryview:
+) -> bytearray | memoryview:
     """Decrypt ciphertext with appended MAC and associated data.
 
     Args:
@@ -236,43 +230,43 @@ def decrypt(
         into: Buffer to write plaintext into (default: bytearray created).
 
     Returns:
-        Plaintext as bytearray if into not provided.
+        Plaintext as bytearray if into not provided, memoryview of into otherwise.
 
     Raises:
         TypeError: If lengths are invalid.
         ValueError: If authentication fails.
     """
-    nonce = memoryview(nonce)
-    key = memoryview(key)
-    ct = memoryview(ct)
-    ad = memoryview(ad) if ad is not None else None
-    into = memoryview(into) if into is not None else None
-
     if maclen not in (16, 32):
         raise TypeError("maclen must be 16 or 32")
-    if key.nbytes != KEYBYTES:
+    if len(key) != KEYBYTES:
         raise TypeError(f"key length must be {KEYBYTES}")
-    if nonce.nbytes != NPUBBYTES:
+    if len(nonce) != NPUBBYTES:
         raise TypeError(f"nonce length must be {NPUBBYTES}")
-    if ct.nbytes < maclen:
+    if len(ct) < maclen:
         raise TypeError("ciphertext too short for tag")
-    m_out = into if into is not None else memoryview(bytearray(ct.nbytes - maclen))
-    if m_out.nbytes != ct.nbytes - maclen:
-        raise TypeError("into length must be len(ciphertext_with_tag)-maclen")
+    expected_out = len(ct) - maclen
+    if into is None:
+        out = bytearray(expected_out)
+    else:
+        if len(into) < expected_out:
+            raise TypeError(
+                "into length must be at least len(ciphertext_with_tag)-maclen"
+            )
+        out = into
 
     rc = _lib.aegis256_decrypt(
-        ffi.from_buffer(m_out),
+        ffi.from_buffer(out),
         _ptr(ct),
-        ct.nbytes,
+        len(ct),
         maclen,
         _ptr(ad),
-        0 if ad is None else ad.nbytes,
+        0 if ad is None else len(ad),
         _ptr(nonce),
         _ptr(key),
     )
     if rc != 0:
         raise ValueError("authentication failed")
-    return m_out
+    return out if into is None else memoryview(out)[:expected_out]  # type: ignore
 
 
 def stream(
@@ -281,7 +275,7 @@ def stream(
     length: int | None = None,
     *,
     into: Buffer | None = None,
-) -> memoryview:
+) -> bytearray | Buffer:
     """Generate a stream of pseudorandom bytes.
 
     Args:
@@ -291,29 +285,30 @@ def stream(
         into: Buffer to write stream into (default: bytearray created).
 
     Returns:
-        Pseudorandom bytes as bytearray if into not provided.
+        Pseudorandom bytes as bytearray, or into returned directly.
 
     Raises:
         TypeError: If lengths are invalid or neither length nor into provided.
     """
-    nonce = memoryview(nonce) if nonce is not None else None
-    key = memoryview(key)
-    into = memoryview(into) if into is not None else None
-
-    if key.nbytes != KEYBYTES:
+    if len(key) != KEYBYTES:
         raise TypeError(f"key length must be {KEYBYTES}")
-    if nonce is not None and nonce.nbytes != NPUBBYTES:
+    if nonce is not None and len(nonce) != NPUBBYTES:
         raise TypeError(f"nonce length must be {NPUBBYTES}")
-    if into is None and length is None:
-        raise TypeError("provide either into or length")
-    out = into if into is not None else memoryview(bytearray(int(length or 0)))
+    if into is None:
+        if length is None:
+            raise TypeError("provide either into or length")
+        out = bytearray(length)
+    else:
+        if length is not None and len(into) < length:
+            raise TypeError("into length must be at least length")
+        out = into
     _lib.aegis256_stream(
         ffi.from_buffer(out),
-        out.nbytes,
+        len(out),
         _ptr(nonce),
         _ptr(key),
     )
-    return out
+    return out if into is None else memoryview(out)[: length or len(out)]  # type: ignore
 
 
 def encrypt_unauthenticated(
@@ -322,7 +317,7 @@ def encrypt_unauthenticated(
     message: Buffer,
     *,
     into: Buffer | None = None,
-) -> memoryview:
+) -> bytearray | memoryview:
     """Encrypt message without authentication (for testing/debugging).
 
     Args:
@@ -332,31 +327,29 @@ def encrypt_unauthenticated(
         into: Buffer to write ciphertext into (default: bytearray created).
 
     Returns:
-        Ciphertext as bytearray if into not provided.
+        Ciphertext as bytearray if into not provided, memoryview of into otherwise.
 
     Raises:
         TypeError: If lengths are invalid.
     """
-    message = memoryview(message)
-    nonce = memoryview(nonce)
-    key = memoryview(key)
-    into = memoryview(into) if into is not None else None
-
-    if key.nbytes != KEYBYTES:
+    if len(key) != KEYBYTES:
         raise TypeError(f"key length must be {KEYBYTES}")
-    if nonce.nbytes != NPUBBYTES:
+    if len(nonce) != NPUBBYTES:
         raise TypeError(f"nonce length must be {NPUBBYTES}")
-    out = into if into is not None else memoryview(bytearray(message.nbytes))
-    if out.nbytes != message.nbytes:
-        raise TypeError("into length must equal len(message)")
+    if into is None:
+        out = bytearray(len(message))
+    else:
+        if len(into) < len(message):
+            raise TypeError("into length must be at least len(message)")
+        out = into
     _lib.aegis256_encrypt_unauthenticated(
         ffi.from_buffer(out),
         _ptr(message),
-        message.nbytes,
+        len(message),
         _ptr(nonce),
         _ptr(key),
     )
-    return out
+    return out if into is None else memoryview(out)[: len(message)]  # type: ignore
 
 
 def decrypt_unauthenticated(
@@ -365,7 +358,7 @@ def decrypt_unauthenticated(
     ct: Buffer,
     *,
     into: Buffer | None = None,
-) -> memoryview:
+) -> bytearray | memoryview:
     """Decrypt ciphertext without authentication (for testing/debugging).
 
     Args:
@@ -375,31 +368,29 @@ def decrypt_unauthenticated(
         into: Buffer to write plaintext into (default: bytearray created).
 
     Returns:
-        Plaintext as bytearray if into not provided.
+        Plaintext as bytearray if into not provided, memoryview of into otherwise.
 
     Raises:
         TypeError: If lengths are invalid.
     """
-    ct = memoryview(ct)
-    nonce = memoryview(nonce)
-    key = memoryview(key)
-    into = memoryview(into) if into is not None else None
-
-    if key.nbytes != KEYBYTES:
+    if len(key) != KEYBYTES:
         raise TypeError(f"key length must be {KEYBYTES}")
-    if nonce.nbytes != NPUBBYTES:
+    if len(nonce) != NPUBBYTES:
         raise TypeError(f"nonce length must be {NPUBBYTES}")
-    out = into if into is not None else memoryview(bytearray(ct.nbytes))
-    if out.nbytes != ct.nbytes:
-        raise TypeError("into length must equal len(ciphertext)")
+    if into is None:
+        out = bytearray(len(ct))
+    else:
+        if len(into) < len(ct):
+            raise TypeError("into length must be at least len(ciphertext)")
+        out = into
     _lib.aegis256_decrypt_unauthenticated(
         ffi.from_buffer(out),
         _ptr(ct),
-        ct.nbytes,
+        len(ct),
         _ptr(nonce),
         _ptr(key),
     )
-    return out
+    return out if into is None else memoryview(out)[: len(ct)]  # type: ignore
 
 
 # This is missing from C API but convenient to have here
@@ -408,7 +399,8 @@ def mac(
     nonce: Buffer,
     data: Buffer,
     maclen: int = ABYTES_MIN,
-) -> memoryview:
+    into: Buffer | None = None,
+) -> bytearray | memoryview:
     """Compute a MAC for the given data in one shot.
 
     Args:
@@ -416,13 +408,14 @@ def mac(
         nonce: Nonce (32 bytes)
         data: Data to MAC
         maclen: MAC length (16 or 32, default 16)
+        into: Buffer to write MAC into (default: bytearray created)
 
     Returns:
-        MAC bytes
+        MAC bytes as bytearray if into not provided, memoryview of into otherwise
     """
     mac_state = Mac(key, nonce)
     mac_state.update(data)
-    return mac_state.final(maclen)
+    return mac_state.final(maclen, into)
 
 
 class Mac:
@@ -460,11 +453,9 @@ class Mac:
             _lib.aegis256_mac_state_clone(self._st, _other._st)
             return
         # Normal init path
-        nonce = memoryview(nonce)
-        key = memoryview(key)
-        if key.nbytes != KEYBYTES:
+        if len(key) != KEYBYTES:
             raise TypeError(f"key length must be {KEYBYTES}")
-        if nonce.nbytes != NPUBBYTES:
+        if len(nonce) != NPUBBYTES:
             raise TypeError(f"nonce length must be {NPUBBYTES}")
         _lib.aegis256_mac_init(self._st, _ptr(key), _ptr(nonce))
 
@@ -487,8 +478,7 @@ class Mac:
         Raises:
             RuntimeError: If the underlying C function reports an error.
         """
-        data = memoryview(data)
-        rc = _lib.aegis256_mac_update(self._st, _ptr(data), data.nbytes)
+        rc = _lib.aegis256_mac_update(self._st, _ptr(data), len(data))
         if rc != 0:
             err_num = ffi.errno
             err_name = errno.errorcode.get(err_num, f"errno_{err_num}")
@@ -498,7 +488,7 @@ class Mac:
         self,
         maclen: int = ABYTES_MIN,
         into: Buffer | None = None,
-    ) -> memoryview:
+    ) -> bytearray | memoryview:
         """Finalize and return the MAC tag.
 
         Args:
@@ -506,7 +496,7 @@ class Mac:
             into: Optional buffer to write the tag into (default: bytearray created).
 
         Returns:
-            The tag as a memoryview; if ``into`` is provided, it views that buffer.
+            The tag as bytearray if into not provided, memoryview of into otherwise.
 
         Raises:
             TypeError: If lengths are invalid.
@@ -514,16 +504,19 @@ class Mac:
         """
         if maclen not in (16, 32):
             raise TypeError("maclen must be 16 or 32")
-        out = into if into is not None else bytearray(maclen)
-        out = memoryview(out)
-        if out.nbytes != maclen:
-            raise TypeError("into length must equal maclen")
-        rc = _lib.aegis256_mac_final(self._st, ffi.from_buffer(out), maclen)
+        if into is None:
+            out = bytearray(maclen)
+        else:
+            if len(into) < maclen:
+                raise TypeError("into length must be at least maclen")
+            out = into
+        out_mv = memoryview(out)
+        rc = _lib.aegis256_mac_final(self._st, ffi.from_buffer(out_mv), maclen)
         if rc != 0:
             err_num = ffi.errno
             err_name = errno.errorcode.get(err_num, f"errno_{err_num}")
             raise RuntimeError(f"mac final failed: {err_name}")
-        return out
+        return out if into is None else memoryview(out)[:maclen]  # type: ignore
 
     def verify(self, mac: Buffer) -> bool:
         """Verify a tag for the current MAC state.
@@ -538,8 +531,7 @@ class Mac:
             TypeError: If tag length is invalid.
             ValueError: If verification fails.
         """
-        mac = memoryview(mac)
-        maclen = mac.nbytes
+        maclen = len(mac)
         if maclen not in (16, 32):
             raise TypeError("mac length must be 16 or 32")
         rc = _lib.aegis256_mac_verify(self._st, _ptr(mac), maclen)
@@ -569,23 +561,20 @@ class Encryptor:
         Raises:
             TypeError: If key or nonce lengths are invalid.
         """
-        key = memoryview(key)
-        nonce = memoryview(nonce)
-        if key.nbytes != KEYBYTES:
+        if len(key) != KEYBYTES:
             raise TypeError(f"key length must be {KEYBYTES}")
-        if nonce.nbytes != NPUBBYTES:
+        if len(nonce) != NPUBBYTES:
             raise TypeError(f"nonce length must be {NPUBBYTES}")
         st, owner = new_aligned_struct("aegis256_state", ALIGNMENT)
         _lib.aegis256_state_init(
             st,
             _ptr(ad) if ad is not None else ffi.NULL,
-            0 if ad is None else memoryview(ad).nbytes,
+            0 if ad is None else len(ad),
             _ptr(nonce),
             _ptr(key),
         )
         self._st = st
         self._owner = owner
-        # Track total plaintext bytes passed through update() so far
         self._bytes_in = 0
         self._bytes_out = 0
 
@@ -602,7 +591,9 @@ class Encryptor:
         """
         return self._bytes_out
 
-    def update(self, message: Buffer, into: Buffer | None = None) -> memoryview:
+    def update(
+        self, message: Buffer, into: Buffer | None = None
+    ) -> bytearray | memoryview:
         """Encrypt a chunk of the message.
 
         Args:
@@ -610,28 +601,27 @@ class Encryptor:
             into: Optional destination buffer; must be >= len(message).
 
         Returns:
-            The ciphertext for this chunk as a memoryview; when ``into`` is
-            provided, a view of that buffer up to the number of bytes written.
+            The ciphertext for this chunk as bytearray if into not provided, memoryview of into otherwise.
 
         Raises:
             TypeError: If destination buffer is too small.
             RuntimeError: If the C update call fails.
         """
-        message = memoryview(message)
-        expected_out = message.nbytes
-        out = memoryview(into if into is not None else bytearray(expected_out))
-        if out.nbytes < expected_out:
+        expected_out = len(message)
+        out = into if into is not None else bytearray(expected_out)
+        out_mv = memoryview(out)
+        if len(out_mv) < expected_out:
             raise TypeError(
                 "into length must be >= expected output size for this update"
             )
         written = ffi.new("size_t *")
         rc = _lib.aegis256_state_encrypt_update(
             self._st,
-            ffi.from_buffer(out),
-            out.nbytes,
+            ffi.from_buffer(out_mv),
+            len(out_mv),
             written,
             _ptr(message),
-            message.nbytes,
+            len(message),
         )
         if rc != 0:
             err_num = ffi.errno
@@ -641,11 +631,13 @@ class Encryptor:
             )
         w = int(written[0])
         assert w == expected_out
-        self._bytes_in += message.nbytes
+        self._bytes_in += len(message)
         self._bytes_out += w
-        return out[:w]
+        return out if into is None else memoryview(out)[:w]  # type: ignore
 
-    def final(self, into: Buffer | None = None, maclen: int = ABYTES_MIN) -> memoryview:
+    def final(
+        self, into: Buffer | None = None, maclen: int = ABYTES_MIN
+    ) -> bytearray | memoryview:
         """Finalize encryption, writing any remaining bytes and the tag.
 
         Args:
@@ -653,9 +645,7 @@ class Encryptor:
             maclen: Tag length (16 or 32). Defaults to 16.
 
         Returns:
-            A memoryview of the produced bytes (tail + tag). When ``into`` is
-            provided, the returned view references that buffer up to the number
-            of bytes written.
+            A memoryview of the produced bytes (tail + tag) if into provided, bytearray slice otherwise.
 
         Raises:
             TypeError: If maclen is invalid.
@@ -663,14 +653,13 @@ class Encryptor:
         """
         if maclen not in (16, 32):
             raise TypeError("maclen must be 16 or 32")
-        # Worst-case final length is leftover tail (<= TAILBYTES_MAX) plus tag
-        out = into if into is not None else bytearray(TAILBYTES_MAX + maclen)
-        out = memoryview(out)
+        # Only the authentication tag is produced here; allocate exactly maclen
+        out = into if into is not None else bytearray(maclen)
         written = ffi.new("size_t *")
         rc = _lib.aegis256_state_encrypt_final(
             self._st,
             ffi.from_buffer(out),
-            out.nbytes,
+            len(out),
             written,
             maclen,
         )
@@ -679,15 +668,18 @@ class Encryptor:
             err_name = errno.errorcode.get(err_num, f"errno_{err_num}")
             raise RuntimeError(f"state encrypt final failed: {err_name}")
         w = int(written[0])
+        if into is None:
+            # Only the tag bytes are returned when we allocate the buffer
+            assert w == maclen
         self._bytes_out += w
-        return out[:w]
+        return out if into is None else memoryview(out)[:w]  # type: ignore
 
 
 class Decryptor:
     """Incremental decryptor.
 
     - update(ciphertext[, into]) -> returns plaintext bytes
-    - final(mac[, into]) -> returns any remaining plaintext bytes
+    - final(mac) -> verifies the MAC tag
     """
 
     __slots__ = ("_st", "_owner", "_bytes_in", "_bytes_out")
@@ -703,23 +695,20 @@ class Decryptor:
         Raises:
             TypeError: If key or nonce lengths are invalid.
         """
-        key = memoryview(key)
-        nonce = memoryview(nonce)
-        if key.nbytes != KEYBYTES:
+        if len(key) != KEYBYTES:
             raise TypeError(f"key length must be {KEYBYTES}")
-        if nonce.nbytes != NPUBBYTES:
+        if len(nonce) != NPUBBYTES:
             raise TypeError(f"nonce length must be {NPUBBYTES}")
         st, owner = new_aligned_struct("aegis256_state", ALIGNMENT)
         _lib.aegis256_state_init(
             st,
             _ptr(ad) if ad is not None else ffi.NULL,
-            0 if ad is None else memoryview(ad).nbytes,
+            0 if ad is None else len(ad),
             _ptr(nonce),
             _ptr(key),
         )
         self._st = st
         self._owner = owner
-        # Track total ciphertext bytes passed through update() so far
         self._bytes_in = 0
         self._bytes_out = 0
 
@@ -730,13 +719,10 @@ class Decryptor:
 
     @property
     def bytes_out(self) -> int:
-        """Total plaintext bytes produced so far.
-
-        Includes bytes written by update() and by final().
-        """
+        """Total plaintext bytes produced so far."""
         return self._bytes_out
 
-    def update(self, ct: Buffer, into: Buffer | None = None) -> memoryview:
+    def update(self, ct: Buffer, into: Buffer | None = None) -> bytearray | memoryview:
         """Process a chunk of ciphertext.
 
         Args:
@@ -744,75 +730,54 @@ class Decryptor:
             into: Optional destination buffer; must be >= len(ciphertext).
 
         Returns:
-            A memoryview of the decrypted bytes for this chunk. When ``into`` is
-            provided, the returned view references that buffer up to the number
-            of bytes written.
+            A memoryview of the decrypted bytes for this chunk if into provided, bytearray otherwise.
 
         Raises:
             TypeError: If destination buffer is too small.
             RuntimeError: If the C update call fails.
         """
-        ct = memoryview(ct)
-        expected_out = ct.nbytes
+        expected_out = len(ct)
         out = into if into is not None else bytearray(expected_out)
-        out = memoryview(out)
-        if out.nbytes < expected_out:
+        out_mv = memoryview(out)
+        if len(out_mv) < expected_out:
             raise TypeError("into length must be >= required capacity for this update")
         written = ffi.new("size_t *")
         rc = _lib.aegis256_state_decrypt_detached_update(
             self._st,
-            ffi.from_buffer(out),
-            out.nbytes,
+            ffi.from_buffer(out_mv),
+            len(out_mv),
             written,
             _ptr(ct),
-            ct.nbytes,
+            len(ct),
         )
         if rc != 0:
             err_num = ffi.errno
             err_name = errno.errorcode.get(err_num, f"errno_{err_num}")
             raise RuntimeError(f"state decrypt update failed: {err_name}")
         w = int(written[0])
-        assert w == expected_out
-        self._bytes_in += ct.nbytes
+        assert w == expected_out, f"got {w}, expected {expected_out}, len(ct)={len(ct)}"
+        self._bytes_in += len(ct)
         self._bytes_out += w
-        return out[:w]
+        return out if into is None else memoryview(out)[:w]  # type: ignore
 
-    def final(self, mac: Buffer, into: Buffer | None = None) -> memoryview:
-        """Finalize decryption by verifying tag and flushing remaining bytes.
+    def final(self, mac: Buffer) -> None:
+        """Finalize decryption by verifying the MAC tag.
 
         Args:
             mac: Tag to verify (16 or 32 bytes).
-            into: Optional destination buffer for the remaining plaintext bytes.
-
-        Returns:
-            A memoryview of the remaining plaintext bytes. When ``into`` is
-            provided, the returned view references that buffer up to the number
-            of bytes written.
 
         Raises:
             TypeError: If tag length is invalid.
             ValueError: If authentication fails.
         """
-        mac = memoryview(mac)
-        maclen = mac.nbytes
+        maclen = len(mac)
         if maclen not in (16, 32):
             raise TypeError("mac length must be 16 or 32")
-        out = into if into is not None else bytearray(TAILBYTES_MAX)
-        out = memoryview(out)
-        written = ffi.new("size_t *")
         rc = _lib.aegis256_state_decrypt_detached_final(
-            self._st,
-            ffi.from_buffer(out),
-            out.nbytes,
-            written,
-            _ptr(mac),
-            maclen,
+            self._st, ffi.NULL, 0, ffi.NULL, _ptr(mac), maclen
         )
         if rc != 0:
             raise ValueError("authentication failed")
-        w = int(written[0])
-        self._bytes_out += w
-        return out[:w]
 
 
 def new_state():

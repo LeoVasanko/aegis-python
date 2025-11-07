@@ -174,8 +174,7 @@ def test_encrypt_decrypt_incremental(vector):
             pt_chunks = []
             for chunk in random_split_bytes(computed_ct):
                 pt_chunks.append(bytes(decryptor.update(chunk)))
-            final_pt = decryptor.final(expected_tag128)
-            pt_chunks.append(bytes(final_pt))
+            decryptor.final(expected_tag128)
 
             # Combine plaintext chunks
             computed_pt = b"".join(pt_chunks)
@@ -215,8 +214,7 @@ def test_encrypt_decrypt_incremental(vector):
             pt_chunks = []
             for chunk in random_split_bytes(computed_ct):
                 pt_chunks.append(bytes(decryptor.update(chunk)))
-            final_pt = decryptor.final(expected_tag256)
-            pt_chunks.append(bytes(final_pt))
+            decryptor.final(expected_tag256)
 
             # Combine plaintext chunks
             computed_pt = b"".join(pt_chunks)
