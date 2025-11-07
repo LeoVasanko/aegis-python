@@ -12,7 +12,6 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: Implementation :: CPython",
-  "License :: OSI Approved :: ISC License (ISCL)",
   "Operating System :: OS Independent",
   "Topic :: Security :: Cryptography",
 ]
