@@ -11,8 +11,6 @@ def find_libaegis():
     libaegis_paths = [
         Path("libaegis/zig-out/lib/libaegis.a"),  # Zig build output (repo build)
         Path("libaegis/build/libaegis.a"),  # CMake build output (repo build)
-        Path("../libaegis/zig-out/lib/libaegis.a"),  # When building from extracted sdist
-        Path("../libaegis/build/libaegis.a"),  # When building from extracted sdist
         Path("/usr/local/lib/libaegis.a"),  # System install
         Path("/usr/lib/libaegis.a"),  # System install
     ]
@@ -21,7 +19,7 @@ def find_libaegis():
         if path.exists():
             print(f"Found libaegis.a at: {path.resolve()}")
             return str(path.resolve())
-    
+
     # Return None instead of raising - will be caught during build
     return None
 
