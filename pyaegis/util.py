@@ -10,7 +10,7 @@ from typing import Protocol
 
 from ._loader import ffi
 
-__all__ = ["new_aligned_struct", "aligned_address", "Buffer", "nonce_increment"]
+__all__ = ["new_aligned_struct", "aligned_address", "Buffer", "nonce_increment", "wipe"]
 
 try:
     from collections.abc import Buffer as _Buffer
@@ -60,4 +60,17 @@ def nonce_increment(nonce: Buffer) -> None:
         if n[i] < 255:
             n[i] += 1
             return
+        n[i] = 0
+
+
+def wipe(buffer: Buffer) -> None:
+    """Set all bytes of the input buffer to zero.
+
+    Useful for securely clearing sensitive data from memory.
+
+    Args:
+        buffer: The buffer to wipe (modified in place).
+    """
+    n = memoryview(buffer)
+    for i in range(len(n)):
         n[i] = 0

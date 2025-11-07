@@ -7,7 +7,7 @@ import secrets
 
 from ._loader import ffi
 from ._loader import lib as _lib
-from .util import Buffer, new_aligned_struct, nonce_inc_inplace
+from .util import Buffer, new_aligned_struct, nonce_increment, wipe
 
 # Constants exposed as functions in C; mirror them as integers at module import time
 KEYBYTES = _lib.aegis128x4_keybytes()
@@ -805,7 +805,8 @@ __all__ = [
     # utility functions
     "random_key",
     "random_nonce",
-    "nonce_inc_inplace",
+    "nonce_increment",
+    "wipe",
     # one-shot functions
     "encrypt_detached",
     "decrypt_detached",
