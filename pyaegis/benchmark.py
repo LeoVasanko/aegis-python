@@ -14,7 +14,7 @@ import time
 
 from pyaegis import aegis128l, aegis128x2, aegis128x4, aegis256, aegis256x2, aegis256x4
 
-MSG_LEN = 16384000  # 16 MiB
+MSG_LEN = 16384000  # 16 000 KiB
 ITERATIONS = 100
 
 ALGORITHMS = [
