@@ -3,7 +3,7 @@ requires = ["hatchling", "cffi>=2.0.0"]
 build-backend = "hatchling.build"
 
 [project]
-name = "aegis"
+name = "pyaegis"
 version = "0.1.0"
 description = "Python bindings for libaegis (links to system library)"
 requires-python = ">=3.12"
@@ -33,6 +33,4 @@ dev = [
 path = "tools/build_hook.py"
 
 [tool.hatch.build.targets.wheel]
-# Ensure only the Python package is included by default; native artifacts
-# will be added by the build hook once implemented.
 packages = ["pyaegis"]

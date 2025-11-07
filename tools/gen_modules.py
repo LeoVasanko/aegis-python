@@ -17,13 +17,8 @@ import re
 import sys
 
 # Template and target locations
-ROOT = (
-    pathlib.Path(__file__).resolve().parents[2]
-    if (pathlib.Path(__file__).resolve().parents[0].name == "tools")
-    else pathlib.Path.cwd()
-)
-PY_DIR = ROOT / "python"
-AEGIS_DIR = PY_DIR / "aegis"
+ROOT = pathlib.Path(__file__).parent.parent
+AEGIS_DIR = ROOT / "pyaegis"
 TEMPLATE = AEGIS_DIR / "aegis256x4.py"
 
 # Variants to generate (template excluded) and their ALIGNMENT values

@@ -9,8 +9,9 @@ Error return codes from the C library raise ValueError.
 import errno
 from collections.abc import Buffer
 
-from ._loader import alloc_aligned, ffi, libc
+from ._loader import ffi
 from ._loader import lib as _lib
+from .util import new_aligned_struct
 
 # Constants exposed as functions in C; mirror them as integers at module import time
 KEYBYTES = _lib.aegis128x2_keybytes()
@@ -445,7 +446,7 @@ class Mac:
         mac2 = Mac(key, nonce); mac2.update(data); mac2.verify(tag)
     """
 
-    __slots__ = ("_st", "_nonce", "_key")
+    __slots__ = ("_st", "_owner")
 
     def __init__(
         self,
@@ -462,19 +463,19 @@ class Mac:
         Raises:
             TypeError: If key or nonce lengths are invalid.
         """
-        raw = alloc_aligned(ffi.sizeof("aegis128x2_mac_state"), ALIGNMENT)
-        st = ffi.cast("aegis128x2_mac_state *", raw)
-        self._st = ffi.gc(st, libc.free)
-        if _other is not None:
+        st, owner = new_aligned_struct("aegis128x2_mac_state", ALIGNMENT)
+        self._st = st
+        self._owner = owner
+        if _other is not None:  # clone path
             _lib.aegis128x2_mac_state_clone(self._st, _other._st)
             return
-        # Normal init
+        # Normal init path
         nonce = memoryview(nonce)
         key = memoryview(key)
         if key.nbytes != KEYBYTES:
-            raise TypeError(f"key length must be {KEYBYTES=}")
+            raise TypeError(f"key length must be {KEYBYTES}")
         if nonce.nbytes != NPUBBYTES:
-            raise TypeError(f"nonce length must be {NPUBBYTES=}")
+            raise TypeError(f"nonce length must be {NPUBBYTES}")
         _lib.aegis128x2_mac_init(self._st, _ptr(key), _ptr(nonce))
 
     def __deepcopy__(self) -> "Mac":
@@ -565,7 +566,7 @@ class Encryptor:
     - final_detached([ct_into], [mac_into], maclen=16) -> returns (tail_bytes, mac)
     """
 
-    __slots__ = ("_st", "_bytes_in", "_bytes_out")
+    __slots__ = ("_st", "_owner", "_bytes_in", "_bytes_out")
 
     def __init__(self, key: Buffer, nonce: Buffer, ad: Buffer | None = None):
         """Create an incremental encryptor.
@@ -584,9 +585,7 @@ class Encryptor:
             raise TypeError(f"key length must be {KEYBYTES}")
         if nonce.nbytes != NPUBBYTES:
             raise TypeError(f"nonce length must be {NPUBBYTES}")
-        raw = alloc_aligned(ffi.sizeof("aegis128x2_state"), ALIGNMENT)
-        st = ffi.cast("aegis128x2_state *", raw)
-        st = ffi.gc(st, libc.free)
+        st, owner = new_aligned_struct("aegis128x2_state", ALIGNMENT)
         _lib.aegis128x2_state_init(
             st,
             _ptr(ad) if ad is not None else ffi.NULL,
@@ -595,6 +594,7 @@ class Encryptor:
             _ptr(key),
         )
         self._st = st
+        self._owner = owner
         # Track total plaintext bytes passed through update() so far
         self._bytes_in = 0
         self._bytes_out = 0
@@ -746,7 +746,7 @@ class Decryptor:
     - final(mac[, into]) -> returns any remaining plaintext bytes
     """
 
-    __slots__ = ("_st", "_bytes_in", "_bytes_out")
+    __slots__ = ("_st", "_owner", "_bytes_in", "_bytes_out")
 
     def __init__(self, key: Buffer, nonce: Buffer, ad: Buffer | None = None):
         """Create an incremental decryptor for detached tags.
@@ -765,9 +765,7 @@ class Decryptor:
             raise TypeError(f"key length must be {KEYBYTES}")
         if nonce.nbytes != NPUBBYTES:
             raise TypeError(f"nonce length must be {NPUBBYTES}")
-        raw = alloc_aligned(ffi.sizeof("aegis128x2_state"), ALIGNMENT)
-        st = ffi.cast("aegis128x2_state *", raw)
-        st = ffi.gc(st, libc.free)
+        st, owner = new_aligned_struct("aegis128x2_state", ALIGNMENT)
         _lib.aegis128x2_state_init(
             st,
             _ptr(ad) if ad is not None else ffi.NULL,
@@ -776,6 +774,7 @@ class Decryptor:
             _ptr(key),
         )
         self._st = st
+        self._owner = owner
         # Track total ciphertext bytes passed through update() so far
         self._bytes_in = 0
         self._bytes_out = 0
@@ -873,21 +872,13 @@ class Decryptor:
 
 
 def new_state():
-    """Allocate and return a new aegis128x2_state* with proper alignment.
-
-    The returned object is an ffi cdata pointer with automatic finalizer.
-    """
-    # Allocate with required alignment using libc.posix_memalign
-    raw = alloc_aligned(ffi.sizeof("aegis128x2_state"), ALIGNMENT)
-    ptr = ffi.cast("aegis128x2_state *", raw)
-    return ffi.gc(ptr, libc.free)
+    """Allocate and return a new aegis128x2_state* with proper alignment."""
+    return new_aligned_struct("aegis128x2_state", ALIGNMENT)
 
 
 def new_mac_state():
     """Allocate and return a new aegis128x2_mac_state* with proper alignment."""
-    raw = alloc_aligned(ffi.sizeof("aegis128x2_mac_state"), ALIGNMENT)
-    ptr = ffi.cast("aegis128x2_mac_state *", raw)
-    return ffi.gc(ptr, libc.free)
+    return new_aligned_struct("aegis128x2_mac_state", ALIGNMENT)
 
 
 __all__ = [

@@ -130,22 +130,13 @@ def generate_cdef(include_dir: pathlib.Path) -> str:
 
         lines.append("")
 
-    # Add libc bits for aligned allocation
-    lines.extend(
-        [
-            "/* libc bits for aligned allocation on POSIX */",
-            "int posix_memalign(void **memptr, size_t alignment, size_t size);",
-            "void free(void *ptr);",
-        ]
-    )
-
     return "\n".join(lines)
 
 
 def main() -> int:
     # Find the include directory
-    root = pathlib.Path(__file__).resolve().parents[2]
-    include_dir = root / "src" / "include"
+    root = pathlib.Path(__file__).parent.parent
+    include_dir = root / "libaegis" / "src" / "include"
 
     if not include_dir.exists():
         print(f"Include directory not found: {include_dir}", file=sys.stderr)
@@ -153,8 +144,8 @@ def main() -> int:
 
     cdef_string = generate_cdef(include_dir)
 
-    # Write to a file in the pyaegis/build subdirectory
-    output_dir = root / "python" / "pyaegis" / "build"
+    # Write to a file in the pyaegis directory
+    output_dir = root / "pyaegis"
     output_dir.mkdir(exist_ok=True)
     output_path = output_dir / "aegis_cdef.h"
     output_path.write_text(cdef_string, encoding="utf-8")

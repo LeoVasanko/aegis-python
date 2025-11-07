@@ -4,3 +4,5 @@
 /dist
 /pyaegis/build
 __pycache__
+!.gitignore
+!.gitmodules
