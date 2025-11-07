@@ -9,7 +9,7 @@ Fast, safe Python bindings for the AEGIS family of authenticated encryption algo
 
 - PyPI (recommended):
 
-```bash
+```fish
 pip install pyaegis
 ```
 
@@ -26,15 +26,17 @@ All submodules expose the same API; pick one for your key/nonce size and platfor
 
 ## Quick start
 
+Normal authenticated encryption using the AEGIS-128X4 algorithm:
+
 ```python
 from pyaegis import aegis128x4 as ciph
 
-key = ciph.random_key()
-nonce = ciph.random_nonce()
+key = ciph.random_key()      # Secret key (stored securely)
+nonce = ciph.random_nonce()  # Public nonce (recreated for each message)
 msg = b"hello"
 
 ct = ciph.encrypt(key, nonce, msg)
-pt = ciph.decrypt(key, nonce, ct)
+pt = ciph.decrypt(key, nonce, ct)   # Raises ValueError if anything was tampered with
 assert pt == msg
 ```
 
@@ -239,7 +241,7 @@ uv run -m pyaegis.benchmark
 
 Benchmarks of the Python module and the C library run on Intel i7-14700, linux, single core (the software is not multithreaded). Note that the results are in megabits per second, not bytes. The CPU lacks AVX-512 that makes the X4 variants faster on AMD hardware.
 
-```bash
+```fish
 $ python -m pyaegis.benchmark
 AEGIS-256        107666.56 Mb/s
 AEGIS-256X2      191314.53 Mb/s
@@ -256,7 +258,7 @@ AEGIS-256X4 MAC  347406.96 Mb/s
 ```
 
 The Python library performance is similar to that of the C library:
-```bash
+```fish
 $ ./libaegis/zig-out/bin/benchmark
 AEGIS-256        107820.86 Mb/s
 AEGIS-256X2      205025.57 Mb/s
