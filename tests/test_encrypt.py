@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
-from sys import stderr
 
 import pytest
+
 from pyaegis import aegis128l, aegis128x2, aegis128x4, aegis256, aegis256x2, aegis256x4
 
 from .util import random_split_bytes
@@ -172,11 +172,7 @@ def test_encrypt_decrypt_incremental(vector):
             # Incremental decryption with different random chunking
             decryptor = alg.Decryptor(key, nonce, ad)
             pt_chunks = []
-            stderr.write(f"CT len={len(computed_ct)}\n")
             for chunk in random_split_bytes(computed_ct):
-                stderr.write(
-                    f"Processing chunk of size {len(chunk)} {decryptor.bytes_in=}, out {alg.calc_update_output_size(decryptor.bytes_in, len(chunk))}\n"
-                )
                 pt_chunks.append(bytes(decryptor.update(chunk)))
             final_pt = decryptor.final(expected_tag128)
             pt_chunks.append(bytes(final_pt))
