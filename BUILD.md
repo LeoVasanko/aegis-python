@@ -109,6 +109,4 @@ If you cannot install Zig, you may manually compile in the libaegis folder (Zig,
 - `pyaegis/` - Python package source
 - `libaegis/` - C library source (submodule)
 - `tests/` - Test suite
-- `tools/` - Code generation scripts
-- `examples/` - Usage examples
-- `build_backend.py` - Custom setuptools build backend to do the Zig libaegis build
+- `tools/` - Code generation scripts and `build_backend.py` used to build libaegis

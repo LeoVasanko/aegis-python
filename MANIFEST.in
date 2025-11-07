@@ -1,6 +1,6 @@
 include pyaegis/aegis_cdef.h
 include setup.py
-include build_backend.py
+include tools/build_backend.py
 include BUILD.md
 include README.md
 recursive-include libaegis *.c *.h *.zig *.zon

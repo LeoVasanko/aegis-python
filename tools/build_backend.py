@@ -34,7 +34,7 @@ def _build_libaegis():
     # Check Zig availability first
     _check_zig_available()
 
-    libaegis_dir = Path(__file__).parent / "libaegis"
+    libaegis_dir = Path(__file__).parent.parent / "libaegis"
     if not libaegis_dir.exists():
         raise FileNotFoundError(
             f"libaegis directory not found at {libaegis_dir}. "
