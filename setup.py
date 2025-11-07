@@ -5,7 +5,6 @@ from pathlib import Path
 from cffi import FFI
 from setuptools import setup
 
-# Read the CDEF header
 cdef_path = Path(__file__).parent / "pyaegis" / "aegis_cdef.h"
 cdef_content = cdef_path.read_text(encoding="utf-8")
 

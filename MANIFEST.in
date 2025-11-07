@@ -1,6 +1,13 @@
 include pyaegis/aegis_cdef.h
 include setup.py
+include build_backend.py
 include BUILD.md
 include README.md
-recursive-include libaegis/src/include *.h
-include libaegis/zig-out/lib/libaegis.a
+recursive-include libaegis *.c *.h *.zig *.zon
+include libaegis/CMakeLists.txt
+include libaegis/LICENSE
+include libaegis/README.md
+recursive-include libaegis/cmake *.cmake *.cmake.in
+graft libaegis/src
+include libaegis/build.zig
+include libaegis/build.zig.zon

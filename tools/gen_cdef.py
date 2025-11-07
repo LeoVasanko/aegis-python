@@ -39,9 +39,7 @@ def clean_declaration(text: str) -> str:
     if "CRYPTO_ALIGN" in text and "typedef struct" in text:
         # Replace "CRYPTO_ALIGN(N) uint8_t opaque[SIZE];" with "...;"
         text = re.sub(
-            r"CRYPTO_ALIGN\s*\(\s*\d+\s*\)\s+uint8_t\s+opaque\[\d+\];",
-            "...;",
-            text
+            r"CRYPTO_ALIGN\s*\(\s*\d+\s*\)\s+uint8_t\s+opaque\[\d+\];", "...;", text
         )
     else:
         # For non-struct declarations, just remove CRYPTO_ALIGN
