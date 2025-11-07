@@ -598,7 +598,7 @@ class Encryptor:
     def bytes_out(self) -> int:
         """Total ciphertext bytes produced so far.
 
-        Includes update() and final()/final_detached() output, also MAC tag.
+        Includes update() and final() output.
         """
         return self._bytes_out
 
@@ -681,51 +681,6 @@ class Encryptor:
         w = int(written[0])
         self._bytes_out += w
         return out[:w]
-
-    def final_detached(
-        self,
-        ct_into: bytearray | None = None,
-        mac_into: bytearray | None = None,
-        maclen: int = ABYTES_MIN,
-    ) -> tuple[bytearray, bytearray]:
-        """Finalize encryption, producing detached tail bytes and tag.
-
-        Args:
-            ct_into: Optional destination for the remaining ciphertext tail.
-            mac_into: Optional destination for the tag.
-            maclen: Tag length (16 or 32). Defaults to 16.
-
-        Returns:
-            A tuple of (tail_bytes, mac). When destination buffers are provided,
-            the first element is a slice of ``ct_into`` up to the number of bytes
-            written, and the second is ``mac_into``.
-
-        Raises:
-            TypeError: If maclen is invalid or mac_into has the wrong length.
-            RuntimeError: If the C final call fails.
-        """
-        if maclen not in (16, 32):
-            raise TypeError("maclen must be 16 or 32")
-        out = ct_into if ct_into is not None else bytearray(TAILBYTES_MAX)
-        mac = mac_into if mac_into is not None else bytearray(maclen)
-        if len(mac) != maclen:
-            raise TypeError("mac_into length must equal maclen")
-        written = ffi.new("size_t *")
-        rc = _lib.aegis128x4_state_encrypt_detached_final(
-            self._st,
-            ffi.from_buffer(out),
-            len(out),
-            written,
-            ffi.from_buffer(mac),
-            maclen,
-        )
-        if rc != 0:
-            err_num = ffi.errno
-            err_name = errno.errorcode.get(err_num, f"errno_{err_num}")
-            raise RuntimeError(f"state encrypt detached final failed: {err_name}")
-        w = int(written[0])
-        self._bytes_out += w + maclen
-        return out[:w], mac
 
 
 class Decryptor:
