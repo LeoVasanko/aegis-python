@@ -234,7 +234,7 @@ Runtime CPU feature detection selects optimized code paths (AES-NI, ARM Crypto, 
 Run the built-in benchmark to see which variant is fastest on your machine:
 
 ```fish
-python -m pyaegis.benchmark
+uv run -m pyaegis.benchmark
 ```
 
 Benchmarks of the Python module and the C library run on Intel i7-14700, linux, single core (the software is not multithreaded). Note that the results are in megabits per second, not bytes. The CPU lacks AVX-512 that makes the X4 variants faster on AMD hardware.
