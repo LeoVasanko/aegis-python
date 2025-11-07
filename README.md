@@ -237,11 +237,8 @@ Run the built-in benchmark to see which variant is fastest on your machine:
 python -m pyaegis.benchmark
 ```
 
-Benchmarks of the Python module and the C library run on Intel i7-14700, linux, single core (the software is not multithreaded). Note that the results are in megabits per second, not bytes. The CPU lacks AVX-512 that makes the X4 variants faster on AMD hardware. The Python library performance is similar to that of the C library.
+Benchmarks of the Python module and the C library run on Intel i7-14700, linux, single core (the software is not multithreaded). Note that the results are in megabits per second, not bytes. The CPU lacks AVX-512 that makes the X4 variants faster on AMD hardware.
 
-<table>
-<tr>
-<td>
 ```bash
 $ python -m pyaegis.benchmark
 AEGIS-256        107666.56 Mb/s
@@ -257,8 +254,8 @@ AEGIS-256 MAC    110187.03 Mb/s
 AEGIS-256X2 MAC  210063.51 Mb/s
 AEGIS-256X4 MAC  347406.96 Mb/s
 ```
-</td>
-<td>
+
+The Python library performance is similar to that of the C library:
 ```bash
 $ ./libaegis/zig-out/bin/benchmark
 AEGIS-256        107820.86 Mb/s
@@ -274,6 +271,3 @@ AEGIS-256 MAC    116776.62 Mb/s
 AEGIS-256X2 MAC  224150.04 Mb/s
 AEGIS-256X4 MAC  392088.05 Mb/s
 ```
-</td>
-</tr>
-</table>
