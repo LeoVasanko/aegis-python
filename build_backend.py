@@ -1,5 +1,6 @@
 """Custom build backend that builds libaegis with Zig before building the Python package."""
 
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -7,8 +8,32 @@ from pathlib import Path
 from setuptools import build_meta as _orig
 
 
+def _check_zig_available():
+    """Check if Zig is installed and available."""
+    if shutil.which("zig") is None:
+        raise RuntimeError(
+            "\n" + "=" * 70 + "\n"
+            "ERROR: Zig compiler not found!\n"
+            "\n"
+            "Building pyaegis requires the Zig compiler to build the libaegis\n"
+            "static library. Please install Zig before building this package.\n"
+            "\n"
+            "Installation instructions:\n"
+            "  - Visit: https://ziglang.org/download/\n"
+            "  - Or use a package manager:\n"
+            "    * macOS:   brew install zig\n"
+            "    * Linux:   See https://github.com/ziglang/zig/wiki/Install-Zig-from-a-Package-Manager\n"
+            "    * Windows: choco install zig  or  scoop install zig\n"
+            "\n"
+            "After installing Zig, please try building again.\n" + "=" * 70 + "\n"
+        )
+
+
 def _build_libaegis():
     """Build libaegis static library with Zig."""
+    # Check Zig availability first
+    _check_zig_available()
+
     libaegis_dir = Path(__file__).parent / "libaegis"
     if not libaegis_dir.exists():
         raise FileNotFoundError(
@@ -26,11 +51,9 @@ def _build_libaegis():
         )
         print("Successfully built libaegis static library")
     except subprocess.CalledProcessError as e:
-        print(f"Error building libaegis: {e}", file=sys.stderr)
-        raise
-    except FileNotFoundError:
         print(
-            "Error: 'zig' command not found. Please install Zig to build libaegis.",
+            f"\nError: Zig build failed with exit code {e.returncode}\n"
+            f"Command: {' '.join(e.cmd)}\n",
             file=sys.stderr,
         )
         raise
@@ -47,6 +70,8 @@ def get_requires_for_build_sdist(config_settings=None):
     """Return build requirements for sdist and ensure libaegis is built first."""
     _build_libaegis()
     return _orig.get_requires_for_build_sdist(config_settings)
+
+
 _orig_prepare_metadata_for_build_wheel = _orig.prepare_metadata_for_build_wheel
 _orig_build_sdist = _orig.build_sdist
 
