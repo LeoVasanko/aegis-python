@@ -6,6 +6,9 @@ into user-provided buffers via optional `into=` (and `mac_into=` for detached).
 Error return codes from the C library raise ValueError.
 """
 
+# All modules are generated from aegis128l.py by tools/gen_modules.py!
+# DO NOT EDIT OTHER ALGORITHM FILES MANUALLY!
+
 import errno
 from collections.abc import Buffer
 

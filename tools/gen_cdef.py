@@ -99,6 +99,8 @@ def generate_cdef(include_dir: pathlib.Path) -> str:
     """Generate the complete CFFI cdef string from all aegis headers."""
 
     lines = [
+        "/* This file is generated with tools/gen_cdef.py. Do not edit. */",
+        "",
         "typedef unsigned char uint8_t;",
         "typedef unsigned long size_t;",
         "",
