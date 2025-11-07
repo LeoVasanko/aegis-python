@@ -1,0 +1,6 @@
+include pyaegis/aegis_cdef.h
+include setup.py
+include BUILD.md
+include README.md
+recursive-include libaegis/src/include *.h
+include libaegis/zig-out/lib/libaegis.a
