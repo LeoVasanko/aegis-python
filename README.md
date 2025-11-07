@@ -1,16 +1,14 @@
 # pyaegis
 
 [![PyPI version](https://badge.fury.io/py/pyaegis.svg)](https://badge.fury.io/py/pyaegis)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/LeoVasanko/pyaegis/blob/main/libaegis/LICENSE)
 
-Fast, safe Python bindings for the AEGIS family of authenticated encryption algorithms (via libaegis).
+Safe Python bindings for the AEGIS family of very fast authenticated encryption algorithms (via libaegis).
 
 ## Install
 
-- PyPI (recommended):
-
+Using [uv](https://docs.astral.sh/uv/getting-started/installation/):
 ```fish
-pip install pyaegis
+uv pip install git+https://github.com/LeoVasanko/pyaegis.git
 ```
 
 For development builds, see BUILD.md.
