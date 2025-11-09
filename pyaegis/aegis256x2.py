@@ -9,7 +9,7 @@ from ._loader import ffi
 from ._loader import lib as _lib
 from .util import Buffer, new_aligned_struct, nonce_increment, wipe
 
-NAME = "AEGIS-256X2"  #: Algorithm name
+NAME = "AEGIS-256X2"  #: Algorithm display name
 KEYBYTES = 32  #: Key size in bytes (varies by algorithm)
 NONCEBYTES = 32  #: Nonce size in bytes (varies by algorithm)
 MACBYTES = 16  #: Normal MAC size (always 16)
@@ -20,15 +20,22 @@ RATE = 64  #: Byte chunk size in internal processing
 
 def random_key() -> bytearray:
     """
-    Generate a random key using cryptographically secure random bytes.
+    Generate a secret key using cryptographically secure random bytes.
 
-    It is recommended to wipe() the key after no longer needed to keep it secret.
+    It is recommended to wipe() the key after no longer needed.
     """
     return bytearray(secrets.token_bytes(KEYBYTES))
 
 
 def random_nonce() -> bytearray:
-    """Generate a random nonce using cryptographically secure random bytes."""
+    """
+    Generate a public nonce using cryptographically secure random bytes.
+
+    Nonces (a number used once) are public data that may be sent together
+    with the ciphertext, but they need to be unique for each use.
+
+    See also: nonce_increment() can be used to derive sequential nonces.
+    """
     return bytearray(secrets.token_bytes(NONCEBYTES))
 
 
@@ -46,11 +53,11 @@ def encrypt_detached(
     ct_into: Buffer | None = None,
     mac_into: Buffer | None = None,
 ) -> tuple[bytearray | memoryview, bytearray | memoryview]:
-    f"""Encrypt message with associated data, returning ciphertext and MAC separately.
+    """Encrypt message with associated data, returning ciphertext and MAC separately.
 
     Args:
-        key: Key ({KEYBYTES=}).
-        nonce: Nonce ({NONCEBYTES=}).
+        key: Secret key (generate with random_key()).
+        nonce: Public nonce (generate with random_nonce()).
         message: The plaintext message to encrypt.
         ad: Associated data (optional).
         maclen: MAC length (16 or 32, default 16).
@@ -114,11 +121,11 @@ def decrypt_detached(
     *,
     into: Buffer | None = None,
 ) -> bytearray | memoryview:
-    f"""Decrypt ciphertext with detached MAC and associated data.
+    """Decrypt ciphertext with detached MAC and associated data.
 
     Args:
-        key: Key ({KEYBYTES=}).
-        nonce: Nonce ({NONCEBYTES=}).
+        key: Secret key (same key used during encryption).
+        nonce: Public nonce (same nonce used during encryption).
         ct: The ciphertext to decrypt.
         mac: The MAC to verify.
         ad: Associated data (optional).
@@ -170,11 +177,11 @@ def encrypt(
     maclen: int = MACBYTES,
     into: Buffer | None = None,
 ) -> bytearray | memoryview:
-    f"""Encrypt message with associated data, returning ciphertext with appended MAC.
+    """Encrypt message with associated data, returning ciphertext with appended MAC.
 
     Args:
-        key: Key ({KEYBYTES=}).
-        nonce: Nonce ({NONCEBYTES=}).
+        key: Secret key (generate with random_key()).
+        nonce: Public nonce (generate with random_nonce()).
         message: The plaintext message to encrypt.
         ad: Associated data (optional).
         maclen: MAC length (16 or 32, default 16).
@@ -226,11 +233,11 @@ def decrypt(
     maclen: int = MACBYTES,
     into: Buffer | None = None,
 ) -> bytearray | memoryview:
-    f"""Decrypt ciphertext with appended MAC and associated data.
+    """Decrypt ciphertext with appended MAC and associated data.
 
     Args:
-        key: Key ({KEYBYTES=}).
-        nonce: Nonce ({NONCEBYTES=}).
+        key: Secret key (same key used during encryption).
+        nonce: Public nonce (same nonce used during encryption).
         ct: The ciphertext with MAC to decrypt.
         ad: Associated data (optional).
         maclen: MAC length (16 or 32, default 16).
@@ -283,11 +290,11 @@ def stream(
     *,
     into: Buffer | None = None,
 ) -> bytearray | Buffer:
-    f"""Generate a stream of pseudorandom bytes.
+    """Generate a stream of pseudorandom bytes.
 
     Args:
-        key: Key ({KEYBYTES=}).
-        nonce: Nonce ({NONCEBYTES=}, uses zeroes for nonce if None).
+        key: Secret key (generate with random_key()).
+        nonce: Public nonce (generate with random_nonce(), uses zeroes for nonce if None).
         length: Number of bytes to generate (required if into is None).
         into: Buffer to write stream into (default: bytearray created).
 
@@ -325,11 +332,11 @@ def encrypt_unauthenticated(
     *,
     into: Buffer | None = None,
 ) -> bytearray | memoryview:
-    f"""Encrypt message without authentication (for testing/debugging).
+    """Encrypt message without authentication (for testing/debugging).
 
     Args:
-        key: Key ({KEYBYTES=}).
-        nonce: Nonce ({NONCEBYTES=}).
+        key: Secret key (generate with random_key()).
+        nonce: Public nonce (generate with random_nonce()).
         message: The plaintext message to encrypt.
         into: Buffer to write ciphertext into (default: bytearray created).
 
@@ -366,11 +373,11 @@ def decrypt_unauthenticated(
     *,
     into: Buffer | None = None,
 ) -> bytearray | memoryview:
-    f"""Decrypt ciphertext without authentication (for testing/debugging).
+    """Decrypt ciphertext without authentication (for testing/debugging).
 
     Args:
-        key: Key ({KEYBYTES=}).
-        nonce: Nonce ({NONCEBYTES=}).
+        key: Secret key (same key used during encryption).
+        nonce: Public nonce (same nonce used during encryption).
         ct: The ciphertext to decrypt.
         into: Buffer to write plaintext into (default: bytearray created).
 
@@ -408,11 +415,11 @@ def mac(
     maclen: int = MACBYTES,
     into: Buffer | None = None,
 ) -> bytearray | memoryview:
-    f"""Compute a MAC for the given data in one shot.
+    """Compute a MAC for the given data in one shot.
 
     Args:
-        key: Key ({KEYBYTES=})
-        nonce: Nonce ({NONCEBYTES=})
+        key: Secret key (generate with random_key())
+        nonce: Public nonce (generate with random_nonce())
         data: Data to MAC
         maclen: MAC length (16 or 32, default 16)
         into: Buffer to write MAC into (default: bytearray created)
@@ -420,70 +427,59 @@ def mac(
     Returns:
         MAC bytes as bytearray if into not provided, memoryview of into otherwise
     """
-    mac_state = Mac(key, nonce)
+    mac_state = Mac(key, nonce, maclen)
     mac_state.update(data)
-    return mac_state.final(maclen, into)
+    return mac_state.final(into)
 
 
 class Mac:
     """AEGIS-256X2 MAC state wrapper.
 
-    Usage:
-        mac = Mac(key, nonce)
-        mac.update(data)
-        tag = mac.final()  # defaults to 16-byte MAC
-        # or verify:
-        mac2 = Mac(key, nonce); mac2.update(data); mac2.verify(tag)
+    Example:
+        a = Mac(key, nonce)
+        a.update(data)
+        mac = a.final()
     """
 
-    __slots__ = ("_st", "_owner")
+    __slots__ = ("_st", "_owner", "_maclen")
 
-    def __init__(
-        self,
-        key: Buffer,
-        nonce: Buffer,
-        _other=None,
-    ) -> None:
-        f"""Initialize a MAC state with a nonce and key.
-
-        Args:
-            key: Key ({KEYBYTES=}).
-            nonce: Nonce ({NONCEBYTES=}).
+    def __init__(self, key: Buffer, nonce: Buffer, maclen: int = MACBYTES) -> None:
+        """Create a MAC with the given key, nonce, and tag length.
 
         Raises:
-            TypeError: If key or nonce lengths are invalid.
+            TypeError: If key, nonce, or maclen are invalid.
         """
-        st, owner = new_aligned_struct("aegis256x2_mac_state", ALIGNMENT)
-        self._st = st
-        self._owner = owner
-        if _other is not None:  # clone path
-            _lib.aegis256x2_mac_state_clone(self._st, _other._st)
-            return
-        # Normal init path
+        if maclen not in (16, 32):
+            raise TypeError("maclen must be 16 or 32")
         if len(key) != KEYBYTES:
             raise TypeError(f"key length must be {KEYBYTES}")
         if len(nonce) != NONCEBYTES:
             raise TypeError(f"nonce length must be {NONCEBYTES}")
+
+        self._maclen = maclen
+        st, owner = new_aligned_struct("aegis256x2_mac_state", ALIGNMENT)
+        self._st = st
+        self._owner = owner
         _lib.aegis256x2_mac_init(self._st, _ptr(key), _ptr(nonce))
 
     def __deepcopy__(self) -> "Mac":
         """Return a clone of current MAC state."""
-        return Mac(b"", b"", _other=self)
+        clone = object.__new__(Mac)
+        clone._maclen = self._maclen
+        clone._st, clone._owner = new_aligned_struct("aegis256x2_mac_state", ALIGNMENT)
+        _lib.aegis256x2_mac_state_clone(clone._st, self._st)
+        return clone
 
     clone = __deepcopy__
 
     def reset(self) -> None:
-        """Reset the MAC state so it can be reused with the same nonce and key."""
+        """Reset back to the original state, prior to any updates."""
         _lib.aegis256x2_mac_reset(self._st)
 
     def update(self, data: Buffer) -> None:
-        """Absorb data into the MAC state.
+        """Update the MAC state with more data.
 
-        Args:
-            data: Bytes-like object to authenticate.
-
-        Raises:
-            RuntimeError: If the underlying C function reports an error.
+        Repeated calls to update() are equivalent to a single call with the concatenated data.
         """
         rc = _lib.aegis256x2_mac_update(self._st, _ptr(data), len(data))
         if rc != 0:
@@ -491,15 +487,13 @@ class Mac:
             err_name = errno.errorcode.get(err_num, f"errno_{err_num}")
             raise RuntimeError(f"mac update failed: {err_name}")
 
-    def final(
-        self,
-        maclen: int = MACBYTES,
-        into: Buffer | None = None,
-    ) -> bytearray | memoryview:
-        """Finalize and return the MAC tag.
+    def final(self, into: Buffer | None = None) -> bytearray | memoryview:
+        """Calculate and return the MAC tag for the currently input data.
+
+        Unlike the C library, this method does not alter the current state,
+        allowing for multiple calls and further updates on the same object.
 
         Args:
-            maclen: Tag length in bytes (16 or 32). Defaults to 16.
             into: Optional buffer to write the tag into (default: bytearray created).
 
         Returns:
@@ -509,30 +503,36 @@ class Mac:
             TypeError: If lengths are invalid.
             RuntimeError: If finalization fails in the C library.
         """
-        if maclen not in (16, 32):
-            raise TypeError("maclen must be 16 or 32")
+        maclen = self._maclen
         if into is None:
             out = bytearray(maclen)
         else:
             if len(into) < maclen:
                 raise TypeError("into length must be at least maclen")
             out = into
-        out_mv = memoryview(out)
-        rc = _lib.aegis256x2_mac_final(self._st, ffi.from_buffer(out_mv), maclen)
+
+        rc = _lib.aegis256x2_mac_final(self.clone()._st, ffi.from_buffer(out), maclen)
         if rc != 0:
             err_num = ffi.errno
             err_name = errno.errorcode.get(err_num, f"errno_{err_num}")
             raise RuntimeError(f"mac final failed: {err_name}")
         return out if into is None else memoryview(out)[:maclen]  # type: ignore
 
+    def digest(self) -> bytes:
+        """Calculate and return the MAC tag as bytes."""
+        return bytes(self.final())
+
+    def hexdigest(self) -> str:
+        """Calculate and return the MAC tag as a hex string."""
+        return self.digest().hex()
+
     def verify(self, mac: Buffer):
-        """Verify a tag for the current MAC state.
+        """Verify that the data entered so far matches the given MAC tag.
+
+        Unlike the C library, this method does not alter the current state.
 
         Args:
-            mac: The tag to verify (16 or 32 bytes).
-
-        Returns:
-            Only if verification succeeds.
+            mac: The tag to verify against (16 or 32 bytes).
 
         Raises:
             TypeError: If tag length is invalid.
@@ -541,7 +541,9 @@ class Mac:
         maclen = len(mac)
         if maclen not in (16, 32):
             raise TypeError("mac length must be 16 or 32")
-        rc = _lib.aegis256x2_mac_verify(self._st, _ptr(mac), maclen)
+
+        cloned = self.clone()
+        rc = _lib.aegis256x2_mac_verify(cloned._st, _ptr(mac), maclen)
         if rc != 0:
             raise ValueError("mac verification failed")
 
@@ -550,23 +552,31 @@ class Encryptor:
     """Incremental encryptor.
 
     - update(message[, into]) -> returns produced ciphertext bytes
-    - final([into], maclen=16) -> returns tail+tag bytes
-    - final_detached([ct_into], [mac_into], maclen=16) -> returns (tail_bytes, mac)
+    - final([into]) -> returns MAC tag
     """
 
-    __slots__ = ("_st", "_owner", "_bytes_in", "_bytes_out")
+    __slots__ = ("_st", "_owner", "_bytes_in", "_bytes_out", "_maclen")
 
-    def __init__(self, key: Buffer, nonce: Buffer, ad: Buffer | None = None):
-        f"""Create an incremental encryptor.
+    def __init__(
+        self,
+        key: Buffer,
+        nonce: Buffer,
+        ad: Buffer | None = None,
+        maclen: int = MACBYTES,
+    ):
+        """Create an incremental encryptor.
 
         Args:
-            key: Key ({KEYBYTES=}).
-            nonce: Nonce ({NONCEBYTES=}).
+            key: Secret key (generate with random_key()).
+            nonce: Public nonce (generate with random_nonce()).
             ad: Associated data to bind to the encryption (optional).
+            maclen: MAC length (16 or 32, default 16).
 
         Raises:
-            TypeError: If key or nonce lengths are invalid.
+            TypeError: If key, nonce, or maclen are invalid.
         """
+        if maclen not in (16, 32):
+            raise TypeError("maclen must be 16 or 32")
         if len(key) != KEYBYTES:
             raise TypeError(f"key length must be {KEYBYTES}")
         if len(nonce) != NONCEBYTES:
@@ -583,6 +593,7 @@ class Encryptor:
         self._owner = owner
         self._bytes_in = 0
         self._bytes_out = 0
+        self._maclen = maclen
 
     @property
     def bytes_in(self) -> int:
@@ -611,8 +622,10 @@ class Encryptor:
 
         Raises:
             TypeError: If destination buffer is too small.
-            RuntimeError: If the C update call fails.
+            RuntimeError: If the C update call fails or if called after final().
         """
+        if self._st is None:
+            raise RuntimeError("Cannot call update() after final()")
         expected_out = len(message)
         out = into if into is not None else bytearray(expected_out)
         out_mv = memoryview(out)
@@ -641,24 +654,21 @@ class Encryptor:
         self._bytes_out += w
         return out if into is None else memoryview(out)[:w]  # type: ignore
 
-    def final(
-        self, into: Buffer | None = None, maclen: int = MACBYTES
-    ) -> bytearray | memoryview:
-        """Finalize encryption, writing any remaining bytes and the tag.
+    def final(self, into: Buffer | None = None) -> bytearray | memoryview:
+        """Finalize encryption and return the authentication tag.
 
         Args:
-            into: Optional destination buffer for the tail and tag.
-            maclen: Tag length (16 or 32). Defaults to 16.
+            into: Optional destination buffer for the tag.
 
         Returns:
-            A memoryview of the produced bytes (tail + tag) if into provided, bytearray slice otherwise.
+            The authentication tag as bytearray if into not provided, memoryview of into otherwise.
 
         Raises:
-            TypeError: If maclen is invalid.
-            RuntimeError: If the C final call fails.
+            RuntimeError: If the C final call fails or if called after final().
         """
-        if maclen not in (16, 32):
-            raise TypeError("maclen must be 16 or 32")
+        if self._st is None:
+            raise RuntimeError("Cannot call final() after final()")
+        maclen = self._maclen
         # Only the authentication tag is produced here; allocate exactly maclen
         out = into if into is not None else bytearray(maclen)
         written = ffi.new("size_t *")
@@ -678,6 +688,8 @@ class Encryptor:
             # Only the tag bytes are returned when we allocate the buffer
             assert w == maclen
         self._bytes_out += w
+        self._st = None
+        self._owner = None
         return out if into is None else memoryview(out)[:w]  # type: ignore
 
 
@@ -688,19 +700,28 @@ class Decryptor:
     - final(mac) -> verifies the MAC tag
     """
 
-    __slots__ = ("_st", "_owner", "_bytes_in", "_bytes_out")
+    __slots__ = ("_st", "_owner", "_bytes_in", "_bytes_out", "_maclen")
 
-    def __init__(self, key: Buffer, nonce: Buffer, ad: Buffer | None = None):
-        f"""Create an incremental decryptor for detached tags.
+    def __init__(
+        self,
+        key: Buffer,
+        nonce: Buffer,
+        ad: Buffer | None = None,
+        maclen: int = MACBYTES,
+    ):
+        """Create an incremental decryptor for detached tags.
 
         Args:
-            key: Key ({KEYBYTES=}).
-            nonce: Nonce ({NONCEBYTES=}).
+            key: Secret key (same key used during encryption).
+            nonce: Public nonce (same nonce used during encryption).
             ad: Associated data used during encryption (optional).
+            maclen: MAC length (16 or 32, default 16).
 
         Raises:
-            TypeError: If key or nonce lengths are invalid.
+            TypeError: If key, nonce, or maclen are invalid.
         """
+        if maclen not in (16, 32):
+            raise TypeError("maclen must be 16 or 32")
         if len(key) != KEYBYTES:
             raise TypeError(f"key length must be {KEYBYTES}")
         if len(nonce) != NONCEBYTES:
@@ -717,6 +738,7 @@ class Decryptor:
         self._owner = owner
         self._bytes_in = 0
         self._bytes_out = 0
+        self._maclen = maclen
 
     @property
     def bytes_in(self) -> int:
@@ -740,8 +762,10 @@ class Decryptor:
 
         Raises:
             TypeError: If destination buffer is too small.
-            RuntimeError: If the C update call fails.
+            RuntimeError: If the C update call fails or if called after final().
         """
+        if self._st is None:
+            raise RuntimeError("Cannot call update() after final()")
         expected_out = len(ct)
         out = into if into is not None else bytearray(expected_out)
         out_mv = memoryview(out)
@@ -770,20 +794,25 @@ class Decryptor:
         """Finalize decryption by verifying the MAC tag.
 
         Args:
-            mac: Tag to verify (16 or 32 bytes).
+            mac: Tag to verify.
 
         Raises:
-            TypeError: If tag length is invalid.
+            TypeError: If tag length doesn't match the expected maclen.
             ValueError: If authentication fails.
+            RuntimeError: If called after final().
         """
-        maclen = len(mac)
-        if maclen not in (16, 32):
-            raise TypeError("mac length must be 16 or 32")
+        if self._st is None:
+            raise RuntimeError("Cannot call final() after final()")
+        maclen = self._maclen
+        if len(mac) != maclen:
+            raise TypeError(f"mac length must be {maclen}")
         rc = _lib.aegis256x2_state_decrypt_detached_final(
             self._st, ffi.NULL, 0, ffi.NULL, _ptr(mac), maclen
         )
         if rc != 0:
             raise ValueError("authentication failed")
+        self._st = None
+        self._owner = None
 
 
 def new_state():

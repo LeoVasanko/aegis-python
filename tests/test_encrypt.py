@@ -147,14 +147,12 @@ def test_encrypt_decrypt_incremental(vector):
             expected_tag128 = bytes.fromhex(vector["tag128"])
 
             # Incremental encryption with random chunking
-            encryptor = alg.Encryptor(key, nonce, ad)
+            encryptor = alg.Encryptor(key, nonce, ad, maclen=16)
             ct_chunks = []
             for chunk in random_split_bytes(msg):
                 ct_result = encryptor.update(chunk)
                 ct_chunks.append(bytes(ct_result))
-            final_output = encryptor.final(maclen=16)
-            ct_chunks.append(bytes(final_output[:-16]))  # ciphertext part
-            computed_mac = bytes(final_output[-16:])  # MAC part
+            computed_mac = bytes(encryptor.final())
 
             # Combine ciphertext chunks
             computed_ct = b"".join(ct_chunks)
@@ -170,7 +168,7 @@ def test_encrypt_decrypt_incremental(vector):
                 )
 
             # Incremental decryption with different random chunking
-            decryptor = alg.Decryptor(key, nonce, ad)
+            decryptor = alg.Decryptor(key, nonce, ad, maclen=16)
             pt_chunks = []
             for chunk in random_split_bytes(computed_ct):
                 pt_chunks.append(bytes(decryptor.update(chunk)))
@@ -187,14 +185,12 @@ def test_encrypt_decrypt_incremental(vector):
             expected_tag256 = bytes.fromhex(vector["tag256"])
 
             # Incremental encryption with random chunking
-            encryptor = alg.Encryptor(key, nonce, ad)
+            encryptor = alg.Encryptor(key, nonce, ad, maclen=32)
             ct_chunks = []
             for chunk in random_split_bytes(msg):
                 ct_result = encryptor.update(chunk)
                 ct_chunks.append(bytes(ct_result))
-            final_output = encryptor.final(maclen=32)
-            ct_chunks.append(bytes(final_output[:-32]))  # ciphertext part
-            computed_mac = bytes(final_output[-32:])  # MAC part
+            computed_mac = bytes(encryptor.final())
 
             # Combine ciphertext chunks
             computed_ct = b"".join(ct_chunks)
@@ -210,7 +206,7 @@ def test_encrypt_decrypt_incremental(vector):
                 )
 
             # Incremental decryption with different random chunking
-            decryptor = alg.Decryptor(key, nonce, ad)
+            decryptor = alg.Decryptor(key, nonce, ad, maclen=32)
             pt_chunks = []
             for chunk in random_split_bytes(computed_ct):
                 pt_chunks.append(bytes(decryptor.update(chunk)))
@@ -229,14 +225,14 @@ def test_encrypt_decrypt_incremental(vector):
         # Test that incremental decryption fails with the provided (invalid) MACs
         if "tag128" in vector:
             invalid_mac = bytes.fromhex(vector["tag128"])
-            decryptor = alg.Decryptor(key, nonce, ad)
+            decryptor = alg.Decryptor(key, nonce, ad, maclen=16)
             decryptor.update(ct)  # This should succeed
             with pytest.raises(ValueError, match="authentication failed"):
                 decryptor.final(invalid_mac)
 
         if "tag256" in vector:
             invalid_mac = bytes.fromhex(vector["tag256"])
-            decryptor = alg.Decryptor(key, nonce, ad)
+            decryptor = alg.Decryptor(key, nonce, ad, maclen=32)
             decryptor.update(ct)  # This should succeed
             with pytest.raises(ValueError, match="authentication failed"):
                 decryptor.final(invalid_mac)

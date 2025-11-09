@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
+
 from pyaegis import aegis128l, aegis128x2, aegis128x4, aegis256, aegis256x2, aegis256x4
 
 from .util import random_split_bytes
@@ -81,10 +82,10 @@ def test_mac_class(vector):
     # Test 128-bit MAC if present
     if "tag128" in vector:
         expected_tag128 = bytes.fromhex(vector["tag128"])
-        mac_state = alg.Mac(key, nonce)
+        mac_state = alg.Mac(key, nonce, maclen=16)
         for chunk in random_split_bytes(data):
             mac_state.update(chunk)
-        computed_tag128 = mac_state.final(maclen=16)
+        computed_tag128 = mac_state.final()
         assert computed_tag128 == expected_tag128, (
             f"128-bit MAC mismatch for {vector['name']}"
         )
@@ -92,10 +93,10 @@ def test_mac_class(vector):
     # Test 256-bit MAC if present
     if "tag256" in vector:
         expected_tag256 = bytes.fromhex(vector["tag256"])
-        mac_state = alg.Mac(key, nonce)
+        mac_state = alg.Mac(key, nonce, maclen=32)
         for chunk in random_split_bytes(data):
             mac_state.update(chunk)
-        computed_tag256 = mac_state.final(maclen=32)
+        computed_tag256 = mac_state.final()
         assert computed_tag256 == expected_tag256, (
             f"256-bit MAC mismatch for {vector['name']}"
         )

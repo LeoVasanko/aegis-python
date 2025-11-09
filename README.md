@@ -70,22 +70,26 @@ No MAC tag, vulnerable to alterations:
 ### Incremental AEAD
 
 Stateful classes that can be used for processing the data in separate chunks:
-- Encryptor(key, nonce, ad=None)
+- Encryptor(key, nonce, ad=None, maclen=16)
     - update(message[, into]) -> ciphertext_chunk
-    - final([into], maclen=16) -> mac_tag
-- Decryptor(key, nonce, ad=None)
+    - final([into]) -> mac_tag
+- Decryptor(key, nonce, ad=None, maclen=16)
     - update(ct_chunk[, into]) -> plaintext_chunk
-    - final(mac) -> None (raises ValueError on failure)
+    - final(mac) -> raises ValueError on failure
 
 ### Message Authentication Code
 
 No encryption, but prevents changes to the data without the correct key.
 
 - mac(key, nonce, data, maclen=16, into=None) -> mac
-- Mac(key, nonce)
+- Mac(key, nonce, maclen=16)
     - update(data)
-    - final(maclen=16[, into]) -> mac
-    - verify(mac) -> bool (True on success; raises ValueError on failure)
+    - final([into]) -> mac
+    - verify(mac) -> raises ValueError on failure
+    - digest() -> bytes
+    - hexdigest() -> str
+
+The `Mac` class follows the Python hashlib API for compatibility with code expecting hash objects. Finalizing does not alter the state, so further updates appending to the already input data can be issued even after calling the other methods that calculate the MAC.
 
 ### Keystream generation
 
@@ -119,12 +123,18 @@ from pyaegis import aegis256x4 as ciph
 key, nonce = ciph.random_key(), bytes(ciph.NONCEBYTES)
 
 mac = ciph.mac(key, nonce, b"message", maclen=32)
-print(mac)
+print(mac.hex())
 
-st = ciph.Mac(key, nonce)
-st.update(b"message")
-st.update(b"Mallory Says Hello!")
-st.verify(mac)  # Raises ValueError
+# Alternative class-based API
+a = ciph.Mac(key, nonce, maclen=32)
+a.update(b"message")
+print(a.hexdigest())
+
+# Verification
+b = ciph.Mac(key, nonce, maclen=32)
+b.update(b"message")
+b.update(b"Mallory Says Hello!")
+b.verify(mac)  # Raises ValueError
 ```
 
 ### Detached mode encryption and decryption
@@ -151,12 +161,12 @@ Class-based interface for incremental updates is an alternative to the one-shot 
 from pyaegis import aegis256x4 as ciph
 key, nonce = ciph.random_key(), ciph.random_nonce()
 
-enc = ciph.Encryptor(key, nonce, ad=b"header")
+enc = ciph.Encryptor(key, nonce, ad=b"header", maclen=16)
 c1 = enc.update(b"chunk1")
 c2 = enc.update(b"chunk2")
-mac = enc.final(maclen=16)
+mac = enc.final()
 
-dec = ciph.Decryptor(key, nonce, ad=b"header")
+dec = ciph.Decryptor(key, nonce, ad=b"header", maclen=16)
 p1 = dec.update(c1)
 p2 = dec.update(c2)
 dec.final(mac)               # raises ValueError on failure
@@ -203,6 +213,25 @@ with open("encrypted.bin", "rb") as f:
         ciph.nonce_increment(nonce)
         print(pt)
 ```
+
+### Random generator
+
+The stream generator is much faster than any traditional random number generator, cryptographically secure and seekable. Use `random_key()` for unpredictable output.
+
+```python
+from pyaegis import aegis128x4 as ciph
+
+key = b"SeedForReplay001"  # A non-random deterministic seed (16 bytes)
+nonce = bytearray(ciph.NONCEBYTES)  # All-zeroes nonce
+
+# Generate multiple blocks of pseudorandom data
+for i in range(5):
+    rand = ciph.stream(key, nonce, 10)
+    print(f"Block {int.from_bytes(nonce, "little")}: {rand.hex()}")
+    ciph.nonce_increment(nonce)
+```
+
+Note: this is seekable by converting the block number to nonce with `idx.to_bytes(ciph.NONCEBYTES, "little")`, given some fixed block size (e.g. 1 MiB).
 
 ### Preallocated output buffers (into=)
 
