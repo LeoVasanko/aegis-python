@@ -17,21 +17,12 @@ from pyaegis import aegis128l, aegis128x2, aegis128x4, aegis256, aegis256x2, aeg
 MSG_LEN = 16384000  # 16 000 KiB
 ITERATIONS = 100
 
-ALGORITHMS = [
-    ("AEGIS-128L", aegis128l),
-    ("AEGIS-128X2", aegis128x2),
-    ("AEGIS-128X4", aegis128x4),
-    ("AEGIS-256", aegis256),
-    ("AEGIS-256X2", aegis256x2),
-    ("AEGIS-256X4", aegis256x4),
-]
-
 
 def _random_bytes(n: int) -> bytes:
     return os.urandom(n)
 
 
-def bench_encrypt(alg_name: str, ciph) -> None:
+def bench_encrypt(ciph) -> None:
     key = _random_bytes(ciph.KEYBYTES)
     nonce = _random_bytes(ciph.NONCEBYTES)
 
@@ -56,10 +47,10 @@ def bench_encrypt(alg_name: str, ciph) -> None:
     throughput_mbps = (
         (bits / (elapsed_s * 1_000_000)) if elapsed_s > 0 else float("inf")
     )
-    print(f"{alg_name}\t{throughput_mbps:10.2f} Mb/s")
+    print(f"{ciph.NAME}\t{throughput_mbps:10.2f} Mb/s")
 
 
-def bench_mac(alg_name: str, ciph) -> None:
+def bench_mac(ciph) -> None:
     key = _random_bytes(ciph.KEYBYTES)
     nonce = _random_bytes(ciph.NONCEBYTES)
 
@@ -83,23 +74,23 @@ def bench_mac(alg_name: str, ciph) -> None:
     throughput_mbps = (
         (bits / (elapsed_s * 1_000_000)) if elapsed_s > 0 else float("inf")
     )
-    print(f"{alg_name} MAC\t{throughput_mbps:10.2f} Mb/s")
+    print(f"{ciph.NAME} MAC\t{throughput_mbps:10.2f} Mb/s")
 
 
 if __name__ == "__main__":
     # aegis_init() is called in the loader at import time already
     # Run encrypt benchmarks in order: 256, 256x2, 256x4, 128l, 128x2, 128x4
-    bench_encrypt("AEGIS-256", aegis256)
-    bench_encrypt("AEGIS-256X2", aegis256x2)
-    bench_encrypt("AEGIS-256X4", aegis256x4)
-    bench_encrypt("AEGIS-128L", aegis128l)
-    bench_encrypt("AEGIS-128X2", aegis128x2)
-    bench_encrypt("AEGIS-128X4", aegis128x4)
+    bench_encrypt(aegis256)
+    bench_encrypt(aegis256x2)
+    bench_encrypt(aegis256x4)
+    bench_encrypt(aegis128l)
+    bench_encrypt(aegis128x2)
+    bench_encrypt(aegis128x4)
 
     # Run MAC benchmarks in order: 128l, 128x2, 128x4, 256, 256x2, 256x4
-    bench_mac("AEGIS-128L", aegis128l)
-    bench_mac("AEGIS-128X2", aegis128x2)
-    bench_mac("AEGIS-128X4", aegis128x4)
-    bench_mac("AEGIS-256", aegis256)
-    bench_mac("AEGIS-256X2", aegis256x2)
-    bench_mac("AEGIS-256X4", aegis256x4)
+    bench_mac(aegis128l)
+    bench_mac(aegis128x2)
+    bench_mac(aegis128x4)
+    bench_mac(aegis256)
+    bench_mac(aegis256x2)
+    bench_mac(aegis256x4)

@@ -9,6 +9,7 @@ from ._loader import ffi
 from ._loader import lib as _lib
 from .util import Buffer, new_aligned_struct, nonce_increment, wipe
 
+NAME = "AEGIS-256"  #: Algorithm name
 KEYBYTES = 32  #: Key size in bytes (varies by algorithm)
 NONCEBYTES = 32  #: Nonce size in bytes (varies by algorithm)
 MACBYTES = 16  #: Normal MAC size (always 16)
@@ -797,6 +798,7 @@ def new_mac_state():
 
 __all__ = [
     # constants
+    "NAME",
     "KEYBYTES",
     "NONCEBYTES",
     "MACBYTES",

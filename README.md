@@ -95,7 +95,7 @@ Useful for creating pseudo random bytes as rapidly as possible. Reuse of the sam
 
 ### Miscellaneous
 
-Constants (per module): KEYBYTES, NONCEBYTES, MACBYTES, MACBYTES_LONG, RATE, ALIGNMENT
+Constants (per module): NAME, KEYBYTES, NONCEBYTES, MACBYTES, MACBYTES_LONG, RATE, ALIGNMENT
 
 - random_key() -> bytearray (length KEYBYTES)
 - random_nonce() -> bytearray (length NONCEBYTES)
