@@ -441,7 +441,7 @@ class Mac:
         mac = a.final()
     """
 
-    __slots__ = ("_st", "_owner", "_maclen")
+    __slots__ = ("_proxy", "_maclen")
 
     def __init__(self, key: Buffer, nonce: Buffer, maclen: int = MACBYTES) -> None:
         """Create a MAC with the given key, nonce, and tag length.
@@ -457,31 +457,29 @@ class Mac:
             raise TypeError(f"nonce length must be {NONCEBYTES}")
 
         self._maclen = maclen
-        st, owner = new_aligned_struct("aegis128x4_mac_state", ALIGNMENT)
-        self._st = st
-        self._owner = owner
-        _lib.aegis128x4_mac_init(self._st, _ptr(key), _ptr(nonce))
-
-    def __deepcopy__(self) -> "Mac":
-        """Return a clone of current MAC state."""
-        clone = object.__new__(Mac)
-        clone._maclen = self._maclen
-        clone._st, clone._owner = new_aligned_struct("aegis128x4_mac_state", ALIGNMENT)
-        _lib.aegis128x4_mac_state_clone(clone._st, self._st)
-        return clone
-
-    clone = __deepcopy__
+        self._proxy = new_aligned_struct("aegis128x4_mac_state", ALIGNMENT)
+        _lib.aegis128x4_mac_init(self._proxy.ptr, _ptr(key), _ptr(nonce))
 
     def reset(self) -> None:
         """Reset back to the original state, prior to any updates."""
-        _lib.aegis128x4_mac_reset(self._st)
+        _lib.aegis128x4_mac_reset(self._proxy.ptr)
+
+    def clone(self) -> "Mac":
+        """Return a clone of current MAC state."""
+        clone = object.__new__(Mac)
+        clone._maclen = self._maclen
+        clone._proxy = new_aligned_struct("aegis128x4_mac_state", ALIGNMENT)
+        _lib.aegis128x4_mac_state_clone(clone._proxy.ptr, self._proxy.ptr)
+        return clone
+
+    __deepcopy__ = clone
 
     def update(self, data: Buffer) -> None:
         """Update the MAC state with more data.
 
         Repeated calls to update() are equivalent to a single call with the concatenated data.
         """
-        rc = _lib.aegis128x4_mac_update(self._st, _ptr(data), len(data))
+        rc = _lib.aegis128x4_mac_update(self._proxy.ptr, _ptr(data), len(data))
         if rc != 0:
             err_num = ffi.errno
             err_name = errno.errorcode.get(err_num, f"errno_{err_num}")
@@ -511,7 +509,8 @@ class Mac:
                 raise TypeError("into length must be at least maclen")
             out = into
 
-        rc = _lib.aegis128x4_mac_final(self.clone()._st, ffi.from_buffer(out), maclen)
+        clone = self.clone()
+        rc = _lib.aegis128x4_mac_final(clone._proxy.ptr, ffi.from_buffer(out), maclen)
         if rc != 0:
             err_num = ffi.errno
             err_name = errno.errorcode.get(err_num, f"errno_{err_num}")
@@ -543,7 +542,7 @@ class Mac:
             raise TypeError("mac length must be 16 or 32")
 
         cloned = self.clone()
-        rc = _lib.aegis128x4_mac_verify(cloned._st, _ptr(mac), maclen)
+        rc = _lib.aegis128x4_mac_verify(cloned._proxy.ptr, _ptr(mac), maclen)
         if rc != 0:
             raise ValueError("mac verification failed")
 
@@ -555,7 +554,7 @@ class Encryptor:
     - final([into]) -> returns MAC tag
     """
 
-    __slots__ = ("_st", "_owner", "_bytes_in", "_bytes_out", "_maclen")
+    __slots__ = ("_state", "_bytes_in", "_bytes_out", "_maclen")
 
     def __init__(
         self,
@@ -581,16 +580,14 @@ class Encryptor:
             raise TypeError(f"key length must be {KEYBYTES}")
         if len(nonce) != NONCEBYTES:
             raise TypeError(f"nonce length must be {NONCEBYTES}")
-        st, owner = new_aligned_struct("aegis128x4_state", ALIGNMENT)
+        self._state = new_aligned_struct("aegis128x4_state", ALIGNMENT)
         _lib.aegis128x4_state_init(
-            st,
+            self._state.ptr,
             _ptr(ad) if ad is not None else ffi.NULL,
             0 if ad is None else len(ad),
             _ptr(nonce),
             _ptr(key),
         )
-        self._st = st
-        self._owner = owner
         self._bytes_in = 0
         self._bytes_out = 0
         self._maclen = maclen
@@ -624,7 +621,7 @@ class Encryptor:
             TypeError: If destination buffer is too small.
             RuntimeError: If the C update call fails or if called after final().
         """
-        if self._st is None:
+        if self._state is None:
             raise RuntimeError("Cannot call update() after final()")
         expected_out = len(message)
         out = into if into is not None else bytearray(expected_out)
@@ -635,7 +632,7 @@ class Encryptor:
             )
         written = ffi.new("size_t *")
         rc = _lib.aegis128x4_state_encrypt_update(
-            self._st,
+            self._state.ptr,
             ffi.from_buffer(out_mv),
             len(out_mv),
             written,
@@ -666,14 +663,14 @@ class Encryptor:
         Raises:
             RuntimeError: If the C final call fails or if called after final().
         """
-        if self._st is None:
+        if self._state is None:
             raise RuntimeError("Cannot call final() after final()")
         maclen = self._maclen
         # Only the authentication tag is produced here; allocate exactly maclen
         out = into if into is not None else bytearray(maclen)
         written = ffi.new("size_t *")
         rc = _lib.aegis128x4_state_encrypt_final(
-            self._st,
+            self._state.ptr,
             ffi.from_buffer(out),
             len(out),
             written,
@@ -688,8 +685,7 @@ class Encryptor:
             # Only the tag bytes are returned when we allocate the buffer
             assert w == maclen
         self._bytes_out += w
-        self._st = None
-        self._owner = None
+        self._state = None
         return out if into is None else memoryview(out)[:w]  # type: ignore
 
 
@@ -700,7 +696,7 @@ class Decryptor:
     - final(mac) -> verifies the MAC tag
     """
 
-    __slots__ = ("_st", "_owner", "_bytes_in", "_bytes_out", "_maclen")
+    __slots__ = ("_state", "_bytes_in", "_bytes_out", "_maclen")
 
     def __init__(
         self,
@@ -726,16 +722,14 @@ class Decryptor:
             raise TypeError(f"key length must be {KEYBYTES}")
         if len(nonce) != NONCEBYTES:
             raise TypeError(f"nonce length must be {NONCEBYTES}")
-        st, owner = new_aligned_struct("aegis128x4_state", ALIGNMENT)
+        self._state = new_aligned_struct("aegis128x4_state", ALIGNMENT)
         _lib.aegis128x4_state_init(
-            st,
+            self._state.ptr,
             _ptr(ad) if ad is not None else ffi.NULL,
             0 if ad is None else len(ad),
             _ptr(nonce),
             _ptr(key),
         )
-        self._st = st
-        self._owner = owner
         self._bytes_in = 0
         self._bytes_out = 0
         self._maclen = maclen
@@ -764,7 +758,7 @@ class Decryptor:
             TypeError: If destination buffer is too small.
             RuntimeError: If the C update call fails or if called after final().
         """
-        if self._st is None:
+        if self._state is None:
             raise RuntimeError("Cannot call update() after final()")
         expected_out = len(ct)
         out = into if into is not None else bytearray(expected_out)
@@ -773,7 +767,7 @@ class Decryptor:
             raise TypeError("into length must be >= required capacity for this update")
         written = ffi.new("size_t *")
         rc = _lib.aegis128x4_state_decrypt_detached_update(
-            self._st,
+            self._state.ptr,
             ffi.from_buffer(out_mv),
             len(out_mv),
             written,
@@ -801,18 +795,17 @@ class Decryptor:
             ValueError: If authentication fails.
             RuntimeError: If called after final().
         """
-        if self._st is None:
+        if self._state is None:
             raise RuntimeError("Cannot call final() after final()")
         maclen = self._maclen
         if len(mac) != maclen:
             raise TypeError(f"mac length must be {maclen}")
         rc = _lib.aegis128x4_state_decrypt_detached_final(
-            self._st, ffi.NULL, 0, ffi.NULL, _ptr(mac), maclen
+            self._state.ptr, ffi.NULL, 0, ffi.NULL, _ptr(mac), maclen
         )
         if rc != 0:
             raise ValueError("authentication failed")
-        self._st = None
-        self._owner = None
+        self._state = None
 
 
 def new_state():
