@@ -5,7 +5,7 @@ backend-path = ["tools"]
 
 [project]
 name = "pyaegis"
-version = "0.2.0"
+version = "0.3.0"
 description = "Python bindings for libaegis"
 requires-python = ">=3.10"
 classifiers = [
