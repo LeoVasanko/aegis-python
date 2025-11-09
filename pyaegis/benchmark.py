@@ -9,7 +9,7 @@ It performs two benchmarks with the same parameters as the Zig version:
 Output format and throughput units mirror the Zig benchmark (Mb/s).
 """
 
-import os
+import secrets
 import time
 
 from pyaegis import aegis128l, aegis128x2, aegis128x4, aegis256, aegis256x2, aegis256x4
@@ -18,19 +18,15 @@ MSG_LEN = 16384000  # 16 000 KiB
 ITERATIONS = 100
 
 
-def _random_bytes(n: int) -> bytes:
-    return os.urandom(n)
-
-
 def bench_encrypt(ciph) -> None:
-    key = _random_bytes(ciph.KEYBYTES)
-    nonce = _random_bytes(ciph.NONCEBYTES)
+    key = ciph.random_key()
+    nonce = ciph.random_nonce()
 
     # Single buffer, as in Zig: c_out == m buffer, with tag appended
     maclen = ciph.MACBYTES
     buf = bytearray(MSG_LEN + maclen)
     # Initialize buffer with random data
-    buf[:] = _random_bytes(len(buf))
+    buf[:] = secrets.token_bytes(len(buf))
 
     mview = memoryview(buf)[:MSG_LEN]
 
@@ -51,17 +47,17 @@ def bench_encrypt(ciph) -> None:
 
 
 def bench_mac(ciph) -> None:
-    key = _random_bytes(ciph.KEYBYTES)
-    nonce = _random_bytes(ciph.NONCEBYTES)
+    key = ciph.random_key()
+    nonce = ciph.random_nonce()
 
     buf = bytearray(MSG_LEN)
-    buf[:] = _random_bytes(len(buf))
+    buf[:] = secrets.token_bytes(len(buf))
 
     mac_out = bytearray(ciph.MACBYTES_LONG)
 
     t0 = time.perf_counter()
     for _ in range(ITERATIONS):
-        m = ciph.mac(key, nonce, buf, maclen=ciph.MACBYTES_LONG, into=mac_out)
+        ciph.mac(key, nonce, buf, maclen=ciph.MACBYTES_LONG, into=mac_out)
     t1 = time.perf_counter()
 
     _ = mac_out[0]
