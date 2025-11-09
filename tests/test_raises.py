@@ -21,7 +21,7 @@ class TestEncryptorFinalization:
 
         # Encrypt some data and finalize
         encryptor.update(b"Hello, world!")
-        tag = encryptor.final()
+        encryptor.final()
 
         # Attempting to update after final should raise RuntimeError
         with pytest.raises(
@@ -38,7 +38,7 @@ class TestEncryptorFinalization:
 
         # Encrypt some data and finalize
         encryptor.update(b"Hello, world!")
-        tag = encryptor.final()
+        encryptor.final()
 
         # Attempting to call final again should raise RuntimeError
         with pytest.raises(
@@ -55,7 +55,7 @@ class TestEncryptorFinalization:
 
         # Encrypt and finalize
         encryptor.update(b"Test data")
-        tag = encryptor.final()
+        encryptor.final()
 
         # Both operations should fail
         with pytest.raises(
