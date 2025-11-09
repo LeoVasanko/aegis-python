@@ -74,16 +74,10 @@ This creates files in the `dist/` directory.
 
 ## Code Generation
 
-The Python modules are generated from templates. If you modify the core implementation in `pyaegis/aegis256x4.py`, regenerate the other variants:
+The Python modules and CFFI definitions are generated from C sources and templates. If you modify the core implementation in `pyaegis/aegis256x4.py` or update libaegis headers, regenerate all files:
 
 ```fish
-python tools/gen_modules.py
-```
-
-If you update libaegis headers, regenerate the CFFI definitions:
-
-```fish
-python tools/gen_cdef.py
+python tools/generate.py
 ```
 
 ## Troubleshooting

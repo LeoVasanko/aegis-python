@@ -1,4 +1,4 @@
-/* This file is generated with tools/gen_cdef.py. Do not edit. */
+/* This file is generated with tools/generate.py. Do not edit. */
 
 typedef unsigned char uint8_t;
 typedef unsigned long size_t;

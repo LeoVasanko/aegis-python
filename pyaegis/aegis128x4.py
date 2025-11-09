@@ -1,5 +1,5 @@
 """AEGIS-128X4"""
-# All modules are generated from aegis128x4.py by tools/gen_modules.py!
+# All modules are generated from aegis256x4.py by tools/generate.py!
 # DO NOT EDIT OTHER ALGORITHM FILES MANUALLY!
 
 import errno
