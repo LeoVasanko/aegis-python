@@ -554,7 +554,7 @@ class Encryptor:
     - final([into]) -> returns MAC tag
     """
 
-    __slots__ = ("_state", "_bytes_in", "_bytes_out", "_maclen")
+    __slots__ = ("_state", "_maclen")
 
     def __init__(
         self,
@@ -588,22 +588,7 @@ class Encryptor:
             _ptr(nonce),
             _ptr(key),
         )
-        self._bytes_in = 0
-        self._bytes_out = 0
         self._maclen = maclen
-
-    @property
-    def bytes_in(self) -> int:
-        """Total plaintext bytes fed to update() so far."""
-        return self._bytes_in
-
-    @property
-    def bytes_out(self) -> int:
-        """Total ciphertext bytes produced so far.
-
-        Includes update() and final() output.
-        """
-        return self._bytes_out
 
     def update(
         self, message: Buffer, into: Buffer | None = None
@@ -647,8 +632,6 @@ class Encryptor:
             )
         w = int(written[0])
         assert w == expected_out
-        self._bytes_in += len(message)
-        self._bytes_out += w
         return out if into is None else memoryview(out)[:w]  # type: ignore
 
     def final(self, into: Buffer | None = None) -> bytearray | memoryview:
@@ -684,7 +667,6 @@ class Encryptor:
         if into is None:
             # Only the tag bytes are returned when we allocate the buffer
             assert w == maclen
-        self._bytes_out += w
         self._state = None
         return out if into is None else memoryview(out)[:w]  # type: ignore
 
@@ -696,7 +678,7 @@ class Decryptor:
     - final(mac) -> verifies the MAC tag
     """
 
-    __slots__ = ("_state", "_bytes_in", "_bytes_out", "_maclen")
+    __slots__ = ("_state", "_maclen")
 
     def __init__(
         self,
@@ -730,19 +712,7 @@ class Decryptor:
             _ptr(nonce),
             _ptr(key),
         )
-        self._bytes_in = 0
-        self._bytes_out = 0
         self._maclen = maclen
-
-    @property
-    def bytes_in(self) -> int:
-        """Total ciphertext bytes fed to update() so far."""
-        return self._bytes_in
-
-    @property
-    def bytes_out(self) -> int:
-        """Total plaintext bytes produced so far."""
-        return self._bytes_out
 
     def update(self, ct: Buffer, into: Buffer | None = None) -> bytearray | memoryview:
         """Process a chunk of ciphertext.
@@ -780,8 +750,6 @@ class Decryptor:
             raise RuntimeError(f"state decrypt update failed: {err_name}")
         w = int(written[0])
         assert w == expected_out, f"got {w}, expected {expected_out}, len(ct)={len(ct)}"
-        self._bytes_in += len(ct)
-        self._bytes_out += w
         return out if into is None else memoryview(out)[:w]  # type: ignore
 
     def final(self, mac: Buffer) -> None:

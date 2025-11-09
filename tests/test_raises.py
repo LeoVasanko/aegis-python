@@ -68,21 +68,6 @@ class TestEncryptorFinalization:
         ):
             encryptor.final()
 
-    def test_properties_accessible_after_final(self):
-        """Test that properties like bytes_in and bytes_out are still accessible after final()."""
-        key = aegis256x4.random_key()
-        nonce = aegis256x4.random_nonce()
-
-        encryptor = aegis256x4.Encryptor(key, nonce)
-
-        message = b"Hello, world!"
-        encryptor.update(message)
-        tag = encryptor.final()
-
-        # Properties should still be accessible
-        assert encryptor.bytes_in == len(message)
-        assert encryptor.bytes_out == len(message) + len(tag)
-
     def test_empty_encryption_finalization(self):
         """Test that finalization works correctly with no update() calls."""
         key = aegis256x4.random_key()
@@ -168,24 +153,6 @@ class TestDecryptorFinalization:
             RuntimeError, match="Cannot call final\\(\\) after final\\(\\)"
         ):
             decryptor.final(tag)
-
-    def test_properties_accessible_after_final(self):
-        """Test that properties like bytes_in and bytes_out are still accessible after final()."""
-        key = aegis256x4.random_key()
-        nonce = aegis256x4.random_nonce()
-        message = b"Hello, world!"
-
-        # Encrypt first
-        ct, tag = aegis256x4.encrypt_detached(key, nonce, message)
-
-        # Decrypt
-        decryptor = aegis256x4.Decryptor(key, nonce)
-        decryptor.update(ct)
-        decryptor.final(tag)
-
-        # Properties should still be accessible
-        assert decryptor.bytes_in == len(ct)
-        assert decryptor.bytes_out == len(message)
 
     def test_empty_decryption_finalization(self):
         """Test that finalization works correctly with no update() calls."""
