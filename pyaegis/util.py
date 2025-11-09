@@ -4,8 +4,6 @@ Currently provides Python-side aligned allocation helpers that avoid relying
 on libc/posix_memalign. Memory is owned by Python; C code only borrows it.
 """
 
-from __future__ import annotations
-
 from typing import Protocol
 
 from ._loader import ffi
@@ -13,7 +11,7 @@ from ._loader import ffi
 __all__ = ["new_aligned_struct", "aligned_address", "Buffer", "nonce_increment", "wipe"]
 
 try:
-    from collections.abc import Buffer as _Buffer
+    from collections.abc import Buffer as _Buffer  # type: ignore[misc]
 
     class Buffer(_Buffer, Protocol):  # type: ignore[misc]
         def __len__(self) -> int: ...
@@ -29,22 +27,36 @@ def aligned_address(obj) -> int:
     return int(ffi.cast("uintptr_t", ffi.addressof(obj, 0)))
 
 
-def new_aligned_struct(ctype: str, alignment: int) -> tuple[object, object]:
-    """Allocate memory for one instance of ``ctype`` with requested alignment.
+class StructHolder:
+    """Proxy object for aligned struct allocation.
 
-    This allocates a Python-owned unsigned char[] buffer large enough to find
-    an aligned start address. Returns (ptr, owner) where ptr is a ``ctype *``
-    and owner is the buffer object keeping the memory alive.
+    Exposes the aligned pointer as a property and wipes the buffer on deletion.
     """
-    if alignment & (alignment - 1):  # Not power of two
-        raise ValueError("alignment must be a power of two")
+
+    def __init__(self, ptr: object, view: memoryview):
+        self._ptr = ptr
+        self._view = view  # Keep memoryview slice and its bytearray alive
+
+    @property
+    def ptr(self) -> object:
+        """The aligned pointer to the struct."""
+        return self._ptr
+
+    def __del__(self):
+        wipe(self._view)
+        del self._ptr, self._view
+
+
+def new_aligned_struct(ctype: str, alignment: int) -> StructHolder:
+    """Allocate memory for one instance of ``ctype`` with requested alignment."""
+    # Allocate backing storage with extra space for alignment
     size = ffi.sizeof(ctype)
-    base = ffi.new("unsigned char[]", size + alignment - 1)
-    addr = aligned_address(base)
-    offset = (-addr) & (alignment - 1)
-    aligned_uc = ffi.addressof(base, offset)
-    ptr = ffi.cast(f"{ctype} *", aligned_uc)
-    return ptr, base
+    view = memoryview(bytearray(size + alignment - 1))
+    # Compute alignment offset from the base address
+    offset = (-aligned_address(ffi.from_buffer(view))) & (alignment - 1)
+    # Slice the memoryview to the aligned region (keeps bytearray alive)
+    view = view[offset : offset + size]
+    return StructHolder(ffi.from_buffer(f"{ctype} *", view), view)
 
 
 def nonce_increment(nonce: Buffer) -> None:
