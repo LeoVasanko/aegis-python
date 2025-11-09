@@ -14,11 +14,10 @@ try:
     from collections.abc import Buffer as _Buffer  # type: ignore[misc]
 
     class Buffer(_Buffer, Protocol):  # type: ignore[misc]
-        def __len__(self) -> int: ...
+        pass
 except ImportError:
 
     class Buffer(Protocol):
-        def __len__(self) -> int: ...
         def __buffer__(self, flags: int) -> memoryview: ...
 
 

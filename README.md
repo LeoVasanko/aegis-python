@@ -243,6 +243,18 @@ For advanced use cases, the output buffer can be supplied with `into` kwarg. Any
 
 A `TypeError` is raised if the buffer is too small. For convenience, the functions return a memoryview showing only the bytes actually written.
 
+Foreign arrays can be used. This example fills a Numpy array with random integers.
+
+```python
+import numpy as np
+from pyaegis import aegis128x4 as ciph
+key, nonce = ciph.random_key(), ciph.random_nonce()
+arr = np.empty(10, dtype=np.uint64)  # Uninitialised integer array
+ciph.stream(key, nonce, into=arr)    # Fill with random bytes
+print(arr)
+```
+
+
 In-place operations are supported when the input and the output point to the same location in memory. When using attached MAC tag, the input buffer needs to be sliced to correct length:
 
 ```python
