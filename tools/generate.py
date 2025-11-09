@@ -103,21 +103,44 @@ def generate_cdef(include_dir: pathlib.Path) -> str:
     return "\n".join(lines)
 
 
-def extract_constants(common_h_path: pathlib.Path) -> Tuple[int, int]:
-    content = common_h_path.read_text(encoding="utf-8")
+def extract_constants(
+    common_h_path: pathlib.Path, header_path: pathlib.Path
+) -> Dict[str, int]:
+    """Extract constants from common.h (ALIGNMENT, RATE) and main header (KEYBYTES, NPUBBYTES, ABYTES_*)."""
+    constants = {}
 
-    align_match = re.search(r"^\s*#define\s+ALIGNMENT\s+(\d+)", content, re.MULTILINE)
-    rate_match = re.search(r"^\s*#define\s+RATE\s+(\d+)", content, re.MULTILINE)
+    # Extract from common.h
+    common_content = common_h_path.read_text(encoding="utf-8")
+    align_match = re.search(
+        r"^\s*#define\s+ALIGNMENT\s+(\d+)", common_content, re.MULTILINE
+    )
+    rate_match = re.search(r"^\s*#define\s+RATE\s+(\d+)", common_content, re.MULTILINE)
 
     if not align_match or not rate_match:
         raise ValueError(
             f"Could not extract ALIGNMENT and/or RATE from {common_h_path}"
         )
 
-    return int(align_match.group(1)), int(rate_match.group(1))
+    constants["ALIGNMENT"] = int(align_match.group(1))
+    constants["RATE"] = int(rate_match.group(1))
+
+    # Extract from main header
+    header_content = header_path.read_text(encoding="utf-8")
+    variant = header_path.stem  # e.g., "aegis256x4"
+
+    for const_name in ["KEYBYTES", "NPUBBYTES", "ABYTES_MIN", "ABYTES_MAX"]:
+        pattern = rf"^\s*#define\s+{variant}_{const_name}\s+(\d+)"
+        match = re.search(pattern, header_content, re.MULTILINE)
+        if not match:
+            raise ValueError(f"Could not extract {const_name} from {header_path}")
+        constants[const_name] = int(match.group(1))
+
+    return constants
 
 
-def extract_all_constants(libaegis_src_dir: pathlib.Path) -> Dict[str, Tuple[int, int]]:
+def extract_all_constants(
+    libaegis_src_dir: pathlib.Path, include_dir: pathlib.Path
+) -> Dict[str, Dict[str, int]]:
     variants = [
         "aegis128l",
         "aegis128x2",
@@ -130,13 +153,18 @@ def extract_all_constants(libaegis_src_dir: pathlib.Path) -> Dict[str, Tuple[int
 
     for variant in variants:
         common_h = libaegis_src_dir / variant / f"{variant}_common.h"
+        header_h = include_dir / f"{variant}.h"
+
         if not common_h.exists():
             print(f"Warning: {common_h} not found, skipping {variant}", file=sys.stderr)
             continue
 
+        if not header_h.exists():
+            print(f"Warning: {header_h} not found, skipping {variant}", file=sys.stderr)
+            continue
+
         try:
-            alignment, rate = extract_constants(common_h)
-            constants[variant] = (alignment, rate)
+            constants[variant] = extract_constants(common_h, header_h)
         except Exception as e:
             print(f"Error extracting constants from {variant}: {e}", file=sys.stderr)
 
@@ -155,7 +183,8 @@ def algo_label(name: str) -> str:
     return "AEGIS-" + name[5:].upper()
 
 
-def generate_variant(template_src: str, variant: str, alignment: int, rate: int) -> str:
+def generate_variant(template_src: str, variant: str, constants: Dict[str, int]) -> str:
+    """Generate a variant module from the template with substituted constants."""
     s = template_src.replace("aegis256x4", variant).replace(
         "AEGIS-256X4", algo_label(variant)
     )
@@ -165,15 +194,34 @@ def generate_variant(template_src: str, variant: str, alignment: int, rate: int)
         "# All modules are generated from aegis256x4.py by tools/generate.py!",
         s,
     )
-    s = replace_constant(ALIGNMENT_RE, s, alignment)
-    s = replace_constant(RATE_RE, s, rate)
+    s = replace_constant(ALIGNMENT_RE, s, constants["ALIGNMENT"])
+    s = replace_constant(RATE_RE, s, constants["RATE"])
+
+    # Replace the constant assignments
+    s = re.sub(r"KEYBYTES = \d+", f"KEYBYTES = {constants['KEYBYTES']}", s)
+    s = re.sub(
+        r"NONCEBYTES = \d+",
+        f"NONCEBYTES = {constants['NPUBBYTES']}",
+        s,
+    )
+    s = re.sub(
+        r"MACBYTES = \d+",
+        f"MACBYTES = {constants['ABYTES_MIN']}",
+        s,
+    )
+    s = re.sub(
+        r"MACBYTES_LONG = \d+",
+        f"MACBYTES_LONG = {constants['ABYTES_MAX']}",
+        s,
+    )
+
     return s
 
 
 def generate_python_modules(
     template_path: pathlib.Path,
     output_dir: pathlib.Path,
-    constants: Dict[str, Tuple[int, int]],
+    constants: Dict[str, Dict[str, int]],
 ) -> Tuple[list[pathlib.Path], list[pathlib.Path]]:
     if not template_path.exists():
         raise FileNotFoundError(f"Template not found: {template_path}")
@@ -184,13 +232,37 @@ def generate_python_modules(
 
     updated = []
     unchanged = []
-    for variant, (alignment, rate) in constants.items():
+    for variant, const_dict in constants.items():
         dst = output_dir / f"{variant}.py"
         if variant == "aegis256x4":
-            new_content = replace_constant(ALIGNMENT_RE, template_src, alignment)
-            new_content = replace_constant(RATE_RE, new_content, rate)
+            # Update template in place with its own constants
+            new_content = replace_constant(
+                ALIGNMENT_RE, template_src, const_dict["ALIGNMENT"]
+            )
+            new_content = replace_constant(RATE_RE, new_content, const_dict["RATE"])
+            # Replace the constant assignments for the template itself
+            new_content = re.sub(
+                r"KEYBYTES = \d+",
+                f"KEYBYTES = {const_dict['KEYBYTES']}",
+                new_content,
+            )
+            new_content = re.sub(
+                r"NONCEBYTES = \d+",
+                f"NONCEBYTES = {const_dict['NPUBBYTES']}",
+                new_content,
+            )
+            new_content = re.sub(
+                r"MACBYTES = \d+",
+                f"MACBYTES = {const_dict['ABYTES_MIN']}",
+                new_content,
+            )
+            new_content = re.sub(
+                r"MACBYTES_LONG = \d+",
+                f"MACBYTES_LONG = {const_dict['ABYTES_MAX']}",
+                new_content,
+            )
         else:
-            new_content = generate_variant(template_src, variant, alignment, rate)
+            new_content = generate_variant(template_src, variant, const_dict)
 
         if dst.exists() and dst.read_text(encoding="utf-8") == new_content:
             unchanged.append(dst)
@@ -216,7 +288,7 @@ def main() -> int:
         return 1
 
     print("Step 1: Extracting constants from C sources...", file=sys.stderr)
-    constants = extract_all_constants(libaegis_src_dir)
+    constants = extract_all_constants(libaegis_src_dir, include_dir)
     if not constants:
         print("Error: No constants extracted", file=sys.stderr)
         return 1
@@ -243,7 +315,9 @@ def main() -> int:
         if unchanged:
             print(
                 "  - No changes to",
-                f"{len(unchanged)} modules" if len(unchanged) > 1 else unchanged[0],
+                f"{len(unchanged)} modules"
+                if len(unchanged) > 1
+                else unchanged[0].name,
                 file=sys.stderr,
             )
     except Exception as e:

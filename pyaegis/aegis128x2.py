@@ -9,24 +9,26 @@ from ._loader import ffi
 from ._loader import lib as _lib
 from .util import Buffer, new_aligned_struct, nonce_increment, wipe
 
-# Constants exposed as functions in C; mirror them as integers at module import time
-KEYBYTES = _lib.aegis128x2_keybytes()
-NPUBBYTES = _lib.aegis128x2_npubbytes()
-ABYTES_MIN = _lib.aegis128x2_abytes_min()
-ABYTES_MAX = _lib.aegis128x2_abytes_max()
-TAILBYTES_MAX = _lib.aegis128x2_tailbytes_max()
-ALIGNMENT = 64
-RATE = 64
+KEYBYTES = 16  #: Key size in bytes (varies by algorithm)
+NONCEBYTES = 16  #: Nonce size in bytes (varies by algorithm)
+MACBYTES = 16  #: Normal MAC size (always 16)
+MACBYTES_LONG = 32  #: Long MAC size (always 32)
+ALIGNMENT = 64  #: Required alignment for internal structures
+RATE = 64  #: Byte chunk size in internal processing
 
 
 def random_key() -> bytearray:
-    """Generate a random key using cryptographically secure random bytes."""
+    """
+    Generate a random key using cryptographically secure random bytes.
+
+    It is recommended to wipe() the key after no longer needed to keep it secret.
+    """
     return bytearray(secrets.token_bytes(KEYBYTES))
 
 
 def random_nonce() -> bytearray:
     """Generate a random nonce using cryptographically secure random bytes."""
-    return bytearray(secrets.token_bytes(NPUBBYTES))
+    return bytearray(secrets.token_bytes(NONCEBYTES))
 
 
 def _ptr(buf):
@@ -39,7 +41,7 @@ def encrypt_detached(
     message: Buffer,
     ad: Buffer | None = None,
     *,
-    maclen: int = ABYTES_MIN,
+    maclen: int = MACBYTES,
     ct_into: Buffer | None = None,
     mac_into: Buffer | None = None,
 ) -> tuple[bytearray | memoryview, bytearray | memoryview]:
@@ -47,7 +49,7 @@ def encrypt_detached(
 
     Args:
         key: Key ({KEYBYTES=}).
-        nonce: Nonce ({NPUBBYTES=}).
+        nonce: Nonce ({NONCEBYTES=}).
         message: The plaintext message to encrypt.
         ad: Associated data (optional).
         maclen: MAC length (16 or 32, default 16).
@@ -65,8 +67,8 @@ def encrypt_detached(
         raise TypeError("maclen must be 16 or 32")
     if len(key) != KEYBYTES:
         raise TypeError(f"key length must be {KEYBYTES}")
-    if len(nonce) != NPUBBYTES:
-        raise TypeError(f"nonce length must be {NPUBBYTES}")
+    if len(nonce) != NONCEBYTES:
+        raise TypeError(f"nonce length must be {NONCEBYTES}")
 
     if ct_into is None:
         c = bytearray(len(message))
@@ -115,7 +117,7 @@ def decrypt_detached(
 
     Args:
         key: Key ({KEYBYTES=}).
-        nonce: Nonce ({NPUBBYTES=}).
+        nonce: Nonce ({NONCEBYTES=}).
         ct: The ciphertext to decrypt.
         mac: The MAC to verify.
         ad: Associated data (optional).
@@ -130,8 +132,8 @@ def decrypt_detached(
     """
     if len(key) != KEYBYTES:
         raise TypeError(f"key length must be {KEYBYTES}")
-    if len(nonce) != NPUBBYTES:
-        raise TypeError(f"nonce length must be {NPUBBYTES}")
+    if len(nonce) != NONCEBYTES:
+        raise TypeError(f"nonce length must be {NONCEBYTES}")
     maclen = len(mac)
     if maclen not in (16, 32):
         raise TypeError("mac length must be 16 or 32")
@@ -164,14 +166,14 @@ def encrypt(
     message: Buffer,
     ad: Buffer | None = None,
     *,
-    maclen: int = ABYTES_MIN,
+    maclen: int = MACBYTES,
     into: Buffer | None = None,
 ) -> bytearray | memoryview:
     f"""Encrypt message with associated data, returning ciphertext with appended MAC.
 
     Args:
         key: Key ({KEYBYTES=}).
-        nonce: Nonce ({NPUBBYTES=}).
+        nonce: Nonce ({NONCEBYTES=}).
         message: The plaintext message to encrypt.
         ad: Associated data (optional).
         maclen: MAC length (16 or 32, default 16).
@@ -188,8 +190,8 @@ def encrypt(
         raise TypeError("maclen must be 16 or 32")
     if len(key) != KEYBYTES:
         raise TypeError(f"key length must be {KEYBYTES}")
-    if len(nonce) != NPUBBYTES:
-        raise TypeError(f"nonce length must be {NPUBBYTES}")
+    if len(nonce) != NONCEBYTES:
+        raise TypeError(f"nonce length must be {NONCEBYTES}")
     if into is None:
         out = bytearray(len(message) + maclen)
     else:
@@ -220,14 +222,14 @@ def decrypt(
     ct: Buffer,
     ad: Buffer | None = None,
     *,
-    maclen: int = ABYTES_MIN,
+    maclen: int = MACBYTES,
     into: Buffer | None = None,
 ) -> bytearray | memoryview:
     f"""Decrypt ciphertext with appended MAC and associated data.
 
     Args:
         key: Key ({KEYBYTES=}).
-        nonce: Nonce ({NPUBBYTES=}).
+        nonce: Nonce ({NONCEBYTES=}).
         ct: The ciphertext with MAC to decrypt.
         ad: Associated data (optional).
         maclen: MAC length (16 or 32, default 16).
@@ -244,8 +246,8 @@ def decrypt(
         raise TypeError("maclen must be 16 or 32")
     if len(key) != KEYBYTES:
         raise TypeError(f"key length must be {KEYBYTES}")
-    if len(nonce) != NPUBBYTES:
-        raise TypeError(f"nonce length must be {NPUBBYTES}")
+    if len(nonce) != NONCEBYTES:
+        raise TypeError(f"nonce length must be {NONCEBYTES}")
     if len(ct) < maclen:
         raise TypeError("ciphertext too short for tag")
     expected_out = len(ct) - maclen
@@ -284,7 +286,7 @@ def stream(
 
     Args:
         key: Key ({KEYBYTES=}).
-        nonce: Nonce ({NPUBBYTES=}, uses zeroes for nonce if None).
+        nonce: Nonce ({NONCEBYTES=}, uses zeroes for nonce if None).
         length: Number of bytes to generate (required if into is None).
         into: Buffer to write stream into (default: bytearray created).
 
@@ -296,8 +298,8 @@ def stream(
     """
     if len(key) != KEYBYTES:
         raise TypeError(f"key length must be {KEYBYTES}")
-    if nonce is not None and len(nonce) != NPUBBYTES:
-        raise TypeError(f"nonce length must be {NPUBBYTES}")
+    if nonce is not None and len(nonce) != NONCEBYTES:
+        raise TypeError(f"nonce length must be {NONCEBYTES}")
     if into is None:
         if length is None:
             raise TypeError("provide either into or length")
@@ -326,7 +328,7 @@ def encrypt_unauthenticated(
 
     Args:
         key: Key ({KEYBYTES=}).
-        nonce: Nonce ({NPUBBYTES=}).
+        nonce: Nonce ({NONCEBYTES=}).
         message: The plaintext message to encrypt.
         into: Buffer to write ciphertext into (default: bytearray created).
 
@@ -338,8 +340,8 @@ def encrypt_unauthenticated(
     """
     if len(key) != KEYBYTES:
         raise TypeError(f"key length must be {KEYBYTES}")
-    if len(nonce) != NPUBBYTES:
-        raise TypeError(f"nonce length must be {NPUBBYTES}")
+    if len(nonce) != NONCEBYTES:
+        raise TypeError(f"nonce length must be {NONCEBYTES}")
     if into is None:
         out = bytearray(len(message))
     else:
@@ -367,7 +369,7 @@ def decrypt_unauthenticated(
 
     Args:
         key: Key ({KEYBYTES=}).
-        nonce: Nonce ({NPUBBYTES=}).
+        nonce: Nonce ({NONCEBYTES=}).
         ct: The ciphertext to decrypt.
         into: Buffer to write plaintext into (default: bytearray created).
 
@@ -379,8 +381,8 @@ def decrypt_unauthenticated(
     """
     if len(key) != KEYBYTES:
         raise TypeError(f"key length must be {KEYBYTES}")
-    if len(nonce) != NPUBBYTES:
-        raise TypeError(f"nonce length must be {NPUBBYTES}")
+    if len(nonce) != NONCEBYTES:
+        raise TypeError(f"nonce length must be {NONCEBYTES}")
     if into is None:
         out = bytearray(len(ct))
     else:
@@ -402,14 +404,14 @@ def mac(
     key: Buffer,
     nonce: Buffer,
     data: Buffer,
-    maclen: int = ABYTES_MIN,
+    maclen: int = MACBYTES,
     into: Buffer | None = None,
 ) -> bytearray | memoryview:
     f"""Compute a MAC for the given data in one shot.
 
     Args:
         key: Key ({KEYBYTES=})
-        nonce: Nonce ({NPUBBYTES=})
+        nonce: Nonce ({NONCEBYTES=})
         data: Data to MAC
         maclen: MAC length (16 or 32, default 16)
         into: Buffer to write MAC into (default: bytearray created)
@@ -445,7 +447,7 @@ class Mac:
 
         Args:
             key: Key ({KEYBYTES=}).
-            nonce: Nonce ({NPUBBYTES=}).
+            nonce: Nonce ({NONCEBYTES=}).
 
         Raises:
             TypeError: If key or nonce lengths are invalid.
@@ -459,8 +461,8 @@ class Mac:
         # Normal init path
         if len(key) != KEYBYTES:
             raise TypeError(f"key length must be {KEYBYTES}")
-        if len(nonce) != NPUBBYTES:
-            raise TypeError(f"nonce length must be {NPUBBYTES}")
+        if len(nonce) != NONCEBYTES:
+            raise TypeError(f"nonce length must be {NONCEBYTES}")
         _lib.aegis128x2_mac_init(self._st, _ptr(key), _ptr(nonce))
 
     def __deepcopy__(self) -> "Mac":
@@ -490,7 +492,7 @@ class Mac:
 
     def final(
         self,
-        maclen: int = ABYTES_MIN,
+        maclen: int = MACBYTES,
         into: Buffer | None = None,
     ) -> bytearray | memoryview:
         """Finalize and return the MAC tag.
@@ -558,7 +560,7 @@ class Encryptor:
 
         Args:
             key: Key ({KEYBYTES=}).
-            nonce: Nonce ({NPUBBYTES=}).
+            nonce: Nonce ({NONCEBYTES=}).
             ad: Associated data to bind to the encryption (optional).
 
         Raises:
@@ -566,8 +568,8 @@ class Encryptor:
         """
         if len(key) != KEYBYTES:
             raise TypeError(f"key length must be {KEYBYTES}")
-        if len(nonce) != NPUBBYTES:
-            raise TypeError(f"nonce length must be {NPUBBYTES}")
+        if len(nonce) != NONCEBYTES:
+            raise TypeError(f"nonce length must be {NONCEBYTES}")
         st, owner = new_aligned_struct("aegis128x2_state", ALIGNMENT)
         _lib.aegis128x2_state_init(
             st,
@@ -639,7 +641,7 @@ class Encryptor:
         return out if into is None else memoryview(out)[:w]  # type: ignore
 
     def final(
-        self, into: Buffer | None = None, maclen: int = ABYTES_MIN
+        self, into: Buffer | None = None, maclen: int = MACBYTES
     ) -> bytearray | memoryview:
         """Finalize encryption, writing any remaining bytes and the tag.
 
@@ -692,7 +694,7 @@ class Decryptor:
 
         Args:
             key: Key ({KEYBYTES=}).
-            nonce: Nonce ({NPUBBYTES=}).
+            nonce: Nonce ({NONCEBYTES=}).
             ad: Associated data used during encryption (optional).
 
         Raises:
@@ -700,8 +702,8 @@ class Decryptor:
         """
         if len(key) != KEYBYTES:
             raise TypeError(f"key length must be {KEYBYTES}")
-        if len(nonce) != NPUBBYTES:
-            raise TypeError(f"nonce length must be {NPUBBYTES}")
+        if len(nonce) != NONCEBYTES:
+            raise TypeError(f"nonce length must be {NONCEBYTES}")
         st, owner = new_aligned_struct("aegis128x2_state", ALIGNMENT)
         _lib.aegis128x2_state_init(
             st,
@@ -796,10 +798,9 @@ def new_mac_state():
 __all__ = [
     # constants
     "KEYBYTES",
-    "NPUBBYTES",
-    "ABYTES_MIN",
-    "ABYTES_MAX",
-    "TAILBYTES_MAX",
+    "NONCEBYTES",
+    "MACBYTES",
+    "MACBYTES_LONG",
     "ALIGNMENT",
     "RATE",
     # utility functions

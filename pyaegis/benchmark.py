@@ -3,7 +3,7 @@
 Python benchmark matching src/test/benchmark.zig for all supported Aegis algorithms.
 
 It performs two benchmarks with the same parameters as the Zig version:
-- AEGIS encrypt (attached tag, maclen = ABYTES_MIN)
+- AEGIS encrypt (attached tag, maclen = MACBYTES)
 - AEGIS MAC (clone state pattern)
 
 Output format and throughput units mirror the Zig benchmark (Mb/s).
@@ -31,12 +31,12 @@ def _random_bytes(n: int) -> bytes:
     return os.urandom(n)
 
 
-def bench_encrypt(alg_name: str, a) -> None:
-    key = _random_bytes(a.KEYBYTES)
-    nonce = _random_bytes(a.NPUBBYTES)
+def bench_encrypt(alg_name: str, ciph) -> None:
+    key = _random_bytes(ciph.KEYBYTES)
+    nonce = _random_bytes(ciph.NONCEBYTES)
 
     # Single buffer, as in Zig: c_out == m buffer, with tag appended
-    maclen = a.ABYTES_MIN
+    maclen = ciph.MACBYTES
     buf = bytearray(MSG_LEN + maclen)
     # Initialize buffer with random data
     buf[:] = _random_bytes(len(buf))
@@ -45,7 +45,7 @@ def bench_encrypt(alg_name: str, a) -> None:
 
     t0 = time.perf_counter()
     for _ in range(ITERATIONS):
-        a.encrypt(key, nonce, mview, None, maclen=maclen, into=buf)
+        ciph.encrypt(key, nonce, mview, None, maclen=maclen, into=buf)
     t1 = time.perf_counter()
 
     # Prevent any unrealistic optimization assumptions
@@ -59,21 +59,21 @@ def bench_encrypt(alg_name: str, a) -> None:
     print(f"{alg_name}\t{throughput_mbps:10.2f} Mb/s")
 
 
-def bench_mac(alg_name: str, a) -> None:
-    key = _random_bytes(a.KEYBYTES)
-    nonce = _random_bytes(a.NPUBBYTES)
+def bench_mac(alg_name: str, ciph) -> None:
+    key = _random_bytes(ciph.KEYBYTES)
+    nonce = _random_bytes(ciph.NONCEBYTES)
 
     buf = bytearray(MSG_LEN)
     buf[:] = _random_bytes(len(buf))
 
-    mac0 = a.Mac(key, nonce)
-    mac_out = bytearray(a.ABYTES_MAX)
+    mac0 = ciph.Mac(key, nonce)
+    mac_out = bytearray(ciph.MACBYTES_LONG)
 
     t0 = time.perf_counter()
     for _ in range(ITERATIONS):
         mac = mac0.clone()
         mac.update(buf)
-        mac.final(maclen=a.ABYTES_MAX, into=mac_out)
+        mac.final(maclen=ciph.MACBYTES_LONG, into=mac_out)
     t1 = time.perf_counter()
 
     _ = mac_out[0]

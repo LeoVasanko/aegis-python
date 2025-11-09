@@ -42,8 +42,8 @@ assert pt == msg
 
 Common parameters and returns (applies to all items below):
 
-- key: bytes of length a.KEYBYTES
-- nonce: bytes of length a.NPUBBYTES (must be unique per (key, message))
+- key: bytes of length ciph.KEYBYTES
+- nonce: bytes of length ciph.NONCEBYTES (must be unique per message)
 - message/ct: plain text or ciphertext
 - ad: optional associated data (authenticated, not encrypted)
 - into: optional output buffer (see below)
@@ -95,10 +95,10 @@ Useful for creating pseudo random bytes as rapidly as possible. Reuse of the sam
 
 ### Miscellaneous
 
-Constants (per module): KEYBYTES, NPUBBYTES, ABYTES_MIN, ABYTES_MAX, RATE, ALIGNMENT
+Constants (per module): KEYBYTES, NONCEBYTES, MACBYTES, MACBYTES_LONG, RATE, ALIGNMENT
 
 - random_key() -> bytearray (length KEYBYTES)
-- random_nonce() -> bytearray (length NPUBBYTES)
+- random_nonce() -> bytearray (length NONCEBYTES)
 - nonce_increment(nonce)
 - wipe(buffer)
 
@@ -116,7 +116,7 @@ Constants (per module): KEYBYTES, NPUBBYTES, ABYTES_MIN, ABYTES_MAX, RATE, ALIGN
 A cryptographically secure keyed hash is produced. The example uses all zeroes for the nonce to always produce the same hash for the same key:
 ```python
 from pyaegis import aegis256x4 as ciph
-key, nonce = ciph.random_key(), bytes(ciph.NPUBBYTES)
+key, nonce = ciph.random_key(), bytes(ciph.NONCEBYTES)
 
 mac = ciph.mac(key, nonce, b"message", maclen=32)
 print(mac)
@@ -151,12 +151,12 @@ Class-based interface for incremental updates is an alternative to the one-shot 
 from pyaegis import aegis256x4 as ciph
 key, nonce = ciph.random_key(), ciph.random_nonce()
 
-enc = a.Encryptor(key, nonce, ad=b"header")
+enc = ciph.Encryptor(key, nonce, ad=b"header")
 c1 = enc.update(b"chunk1")
 c2 = enc.update(b"chunk2")
 mac = enc.final(maclen=16)
 
-dec = a.Decryptor(key, nonce, ad=b"header")
+dec = ciph.Decryptor(key, nonce, ad=b"header")
 p1 = dec.update(c1)
 p2 = dec.update(c2)
 dec.final(mac)               # raises ValueError on failure
@@ -173,7 +173,7 @@ message = bytearray(30 * b"Attack at dawn! ")
 key = b"sixteenbyte key!"  # 16 bytes secret key for aegis128* algorithms
 nonce = ciph.random_nonce()
 framebytes = 80  # In real applications 1 MiB or more is practical
-maclen = ciph.ABYTES_MIN  # 16
+maclen = ciph.MACBYTES  # 16
 
 with open("encrypted.bin", "wb") as f:
     f.write(nonce)  # Public initial nonce sent with the ciphertext
@@ -191,10 +191,10 @@ from pyaegis import aegis128x4 as ciph
 # Decryption needs same values as encryption
 key = b"sixteenbyte key!"
 framebytes = 80
-maclen = ciph.ABYTES_MIN
+maclen = ciph.MACBYTES
 
 with open("encrypted.bin", "rb") as f:
-    nonce = bytearray(f.read(ciph.NPUBBYTES))
+    nonce = bytearray(f.read(ciph.NONCEBYTES))
     while True:
         frame = f.read(framebytes)
         if not frame:
