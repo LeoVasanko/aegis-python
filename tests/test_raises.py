@@ -6,7 +6,98 @@ after calling final(), preventing accidental misuse.
 
 import pytest
 
-from pyaegis import aegis256x4
+from pyaegis import aegis128l, aegis128x2, aegis128x4, aegis256, aegis256x2, aegis256x4
+
+# All AEGIS algorithm modules
+ALL_ALGORITHMS = [aegis128l, aegis128x2, aegis128x4, aegis256, aegis256x2, aegis256x4]
+
+
+class TestMacFinalization:
+    """Test that Mac becomes unusable after final()."""
+
+    @pytest.mark.parametrize(
+        "alg", ALL_ALGORITHMS, ids=lambda x: x.__name__.split(".")[-1]
+    )
+    def test_update_after_final_raises(self, alg):
+        """Test that calling update() after final() raises RuntimeError."""
+        key = alg.random_key()
+        nonce = alg.random_nonce()
+
+        mac = alg.Mac(key, nonce)
+        mac.update(b"Hello, world!")
+        mac.final()
+
+        # Attempting to update after final should raise RuntimeError
+        with pytest.raises(RuntimeError, match="Cannot update after final\\(\\)"):
+            mac.update(b"More data")
+
+    @pytest.mark.parametrize(
+        "alg", ALL_ALGORITHMS, ids=lambda x: x.__name__.split(".")[-1]
+    )
+    def test_final_after_final_raises(self, alg):
+        """Test that calling final() after final() raises RuntimeError."""
+        key = alg.random_key()
+        nonce = alg.random_nonce()
+
+        mac = alg.Mac(key, nonce)
+        mac.update(b"Hello, world!")
+        mac.final()
+
+        # Attempting to call final again should raise RuntimeError
+        with pytest.raises(RuntimeError, match="The MAC can only be calculated once"):
+            mac.final()
+
+    @pytest.mark.parametrize(
+        "alg", ALL_ALGORITHMS, ids=lambda x: x.__name__.split(".")[-1]
+    )
+    def test_digest_after_final_raises(self, alg):
+        """Test that digest() and hexdigest() raise after final()."""
+        key = alg.random_key()
+        nonce = alg.random_nonce()
+
+        mac = alg.Mac(key, nonce)
+        mac.update(b"Hello, world!")
+        mac.final()
+
+        # digest() should raise after final()
+        with pytest.raises(RuntimeError, match="The MAC can only be calculated once"):
+            mac.digest()
+
+        # hexdigest() should also raise after final()
+        with pytest.raises(RuntimeError, match="The MAC can only be calculated once"):
+            mac.hexdigest()
+
+    @pytest.mark.parametrize(
+        "alg", ALL_ALGORITHMS, ids=lambda x: x.__name__.split(".")[-1]
+    )
+    def test_update_after_digest_raises(self, alg):
+        """Test that calling update() after digest() raises RuntimeError."""
+        key = alg.random_key()
+        nonce = alg.random_nonce()
+
+        mac = alg.Mac(key, nonce)
+        mac.update(b"Hello, world!")
+        mac.digest()
+
+        # Attempting to update after digest should raise RuntimeError
+        with pytest.raises(RuntimeError, match="Cannot update after final\\(\\)"):
+            mac.update(b"More data")
+
+    @pytest.mark.parametrize(
+        "alg", ALL_ALGORITHMS, ids=lambda x: x.__name__.split(".")[-1]
+    )
+    def test_final_after_digest_raises(self, alg):
+        """Test that calling final() after digest() raises RuntimeError."""
+        key = alg.random_key()
+        nonce = alg.random_nonce()
+
+        mac = alg.Mac(key, nonce)
+        mac.update(b"Hello, world!")
+        mac.digest()
+
+        # Attempting to call final after digest should raise RuntimeError
+        with pytest.raises(RuntimeError, match="The MAC can only be calculated once"):
+            mac.final()
 
 
 class TestEncryptorFinalization:

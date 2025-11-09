@@ -57,14 +57,11 @@ def bench_mac(ciph) -> None:
     buf = bytearray(MSG_LEN)
     buf[:] = _random_bytes(len(buf))
 
-    mac0 = ciph.Mac(key, nonce, maclen=ciph.MACBYTES_LONG)
     mac_out = bytearray(ciph.MACBYTES_LONG)
 
     t0 = time.perf_counter()
     for _ in range(ITERATIONS):
-        mac = mac0.clone()
-        mac.update(buf)
-        mac.final(into=mac_out)
+        m = ciph.mac(key, nonce, buf, maclen=ciph.MACBYTES_LONG, into=mac_out)
     t1 = time.perf_counter()
 
     _ = mac_out[0]

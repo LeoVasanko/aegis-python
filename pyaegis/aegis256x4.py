@@ -4,6 +4,7 @@
 
 import errno
 import secrets
+from typing import Literal
 
 from ._loader import ffi
 from ._loader import lib as _lib
@@ -433,15 +434,22 @@ def mac(
 
 
 class Mac:
-    """AEGIS-256X4 MAC state wrapper.
+    """MAC calculation and verification with incremental updates.
 
     Example:
         a = Mac(key, nonce)
         a.update(data)
+        ...
         mac = a.final()
+
+    Hashlib compatible interface:
+        a = Mac(key, nonce)
+        a.update(data)
+        bytes_mac = a.digest()
+        hex_mac = a.hexdigest()
     """
 
-    __slots__ = ("_proxy", "_maclen")
+    __slots__ = ("_proxy", "_maclen", "_cached_digest")
 
     def __init__(self, key: Buffer, nonce: Buffer, maclen: int = MACBYTES) -> None:
         """Create a MAC with the given key, nonce, and tag length.
@@ -459,10 +467,12 @@ class Mac:
         self._maclen = maclen
         self._proxy = new_aligned_struct("aegis256x4_mac_state", ALIGNMENT)
         _lib.aegis256x4_mac_init(self._proxy.ptr, _ptr(key), _ptr(nonce))
+        self._cached_digest: None | Literal[False] | bytes = None
 
     def reset(self) -> None:
         """Reset back to the original state, prior to any updates."""
         _lib.aegis256x4_mac_reset(self._proxy.ptr)
+        self._cached_digest = None
 
     def clone(self) -> "Mac":
         """Return a clone of current MAC state."""
@@ -470,6 +480,7 @@ class Mac:
         clone._maclen = self._maclen
         clone._proxy = new_aligned_struct("aegis256x4_mac_state", ALIGNMENT)
         _lib.aegis256x4_mac_state_clone(clone._proxy.ptr, self._proxy.ptr)
+        clone._cached_digest = self._cached_digest
         return clone
 
     __deepcopy__ = clone
@@ -479,6 +490,8 @@ class Mac:
 
         Repeated calls to update() are equivalent to a single call with the concatenated data.
         """
+        if self._cached_digest is not None:
+            raise RuntimeError("Cannot update after final()")
         rc = _lib.aegis256x4_mac_update(self._proxy.ptr, _ptr(data), len(data))
         if rc != 0:
             err_num = ffi.errno
@@ -488,8 +501,8 @@ class Mac:
     def final(self, into: Buffer | None = None) -> bytearray | memoryview:
         """Calculate and return the MAC tag for the currently input data.
 
-        Unlike the C library, this method does not alter the current state,
-        allowing for multiple calls and further updates on the same object.
+        This method can only be called once. After calling it, the MAC becomes unusable
+        for further updates or calls to final().
 
         Args:
             into: Optional buffer to write the tag into (default: bytearray created).
@@ -499,8 +512,12 @@ class Mac:
 
         Raises:
             TypeError: If lengths are invalid.
-            RuntimeError: If finalization fails in the C library.
+            RuntimeError: If finalization fails in the C library or if already finalized.
         """
+        if self._cached_digest is not None:
+            raise RuntimeError(
+                "The MAC can only be calculated once. Use reset() to start over, or clone() before finalizing to continue."
+            )
         maclen = self._maclen
         if into is None:
             out = bytearray(maclen)
@@ -515,14 +532,27 @@ class Mac:
             err_num = ffi.errno
             err_name = errno.errorcode.get(err_num, f"errno_{err_num}")
             raise RuntimeError(f"mac final failed: {err_name}")
+        self._cached_digest = False
         return out if into is None else memoryview(out)[:maclen]  # type: ignore
 
     def digest(self) -> bytes:
-        """Calculate and return the MAC tag as bytes."""
-        return bytes(self.final())
+        """Calculate and return the MAC tag as bytes.
+
+        After calling this method, the MAC becomes unusable for further updates.
+        The result is cached and subsequent calls return the same value.
+        Can be called after final() to get the cached digest.
+        """
+        if self._cached_digest:
+            return self._cached_digest
+        self._cached_digest = bytes(self.final())  # Overrides the False set by final()
+        return self._cached_digest
 
     def hexdigest(self) -> str:
-        """Calculate and return the MAC tag as a hex string."""
+        """Calculate and return the MAC tag as a hex string.
+
+        After calling this method, the MAC becomes unusable for further updates.
+        The result is cached and subsequent calls return the same value.
+        """
         return self.digest().hex()
 
     def verify(self, mac: Buffer):

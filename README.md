@@ -77,6 +77,8 @@ Stateful classes that can be used for processing the data in separate chunks:
     - update(ct_chunk[, into]) -> plaintext_chunk
     - final(mac) -> raises ValueError on failure
 
+The object releases its state and becomes unusable after final has been called.
+
 ### Message Authentication Code
 
 No encryption, but prevents changes to the data without the correct key.
@@ -88,8 +90,10 @@ No encryption, but prevents changes to the data without the correct key.
     - verify(mac) -> raises ValueError on failure
     - digest() -> bytes
     - hexdigest() -> str
+    - reset()
+    - clone() -> Mac
 
-The `Mac` class follows the Python hashlib API for compatibility with code expecting hash objects. Finalizing does not alter the state, so further updates appending to the already input data can be issued even after calling the other methods that calculate the MAC.
+The `Mac` class follows the Python hashlib API for compatibility with code expecting hash objects. After calling `final()`, `digest()`, or `hexdigest()`, the Mac object becomes unusable for further `update()` operations. However, `digest()` and `hexdigest()` cache their results and can be called multiple times. Use `reset()` to clear the state and start over, or `clone()` to create a copy before finalizing.
 
 ### Keystream generation
 
