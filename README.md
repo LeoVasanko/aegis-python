@@ -181,16 +181,17 @@ dec.final(mac)               # raises ValueError on failure
 It is often practical to split larger messages into frames that can be individually decrypted and verified. Because every frame needs a different key, we employ the `nonce_increment` utility function to produce sequential nonces for each frame. As for the AEGIS algorithm, each frame is a completely independent invocation. The program will each time produce a completely different random-looking encrypted.bin file.
 
 ```python
+# Encryption settings
 from pyaegis import aegis128x4 as ciph
-
-message = bytearray(30 * b"Attack at dawn! ")
 key = b"sixteenbyte key!"  # 16 bytes secret key for aegis128* algorithms
-nonce = ciph.random_nonce()
 framebytes = 80  # In real applications 1 MiB or more is practical
 maclen = ciph.MACBYTES  # 16
 
+message = bytearray(30 * b"Attack at dawn! ")
 with open("encrypted.bin", "wb") as f:
-    f.write(nonce)  # Public initial nonce sent with the ciphertext
+    # Public initial nonce sent with the ciphertext
+    nonce = ciph.random_nonce()
+    f.write(nonce)
     while message:
         chunk = message[:framebytes - maclen]
         del message[:len(chunk)]
@@ -200,9 +201,8 @@ with open("encrypted.bin", "wb") as f:
 ```
 
 ```python
-from pyaegis import aegis128x4 as ciph
-
 # Decryption needs same values as encryption
+from pyaegis import aegis128x4 as ciph
 key = b"sixteenbyte key!"
 framebytes = 80
 maclen = ciph.MACBYTES
@@ -280,18 +280,18 @@ Benchmarks using the included benchmark module, run on Intel i7-14700, linux, si
 
 ```fish
 $ uv run -m pyaegis.benchmark
-AEGIS-256        107666.56 Mb/s
-AEGIS-256X2      191314.53 Mb/s
-AEGIS-256X4      211537.44 Mb/s
-AEGIS-128L       159074.08 Mb/s
-AEGIS-128X2      307332.53 Mb/s
-AEGIS-128X4      230106.70 Mb/s
-AEGIS-128L MAC   206082.24 Mb/s
-AEGIS-128X2 MAC  366401.20 Mb/s
-AEGIS-128X4 MAC  375011.51 Mb/s
-AEGIS-256 MAC    110187.03 Mb/s
-AEGIS-256X2 MAC  210063.51 Mb/s
-AEGIS-256X4 MAC  347406.96 Mb/s
+AEGIS-256        103166.24 Mb/s
+AEGIS-256X2      184225.50 Mb/s
+AEGIS-256X4      194018.26 Mb/s
+AEGIS-128L       161551.73 Mb/s
+AEGIS-128X2      281987.80 Mb/s
+AEGIS-128X4      217997.37 Mb/s
+AEGIS-128L MAC   188886.40 Mb/s
+AEGIS-128X2 MAC  306457.97 Mb/s
+AEGIS-128X4 MAC  299576.59 Mb/s
+AEGIS-256 MAC    100914.04 Mb/s
+AEGIS-256X2 MAC  190208.20 Mb/s
+AEGIS-256X4 MAC  315919.87 Mb/s
 ```
 
 The Python library performance is similar to that of the C library:
