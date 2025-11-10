@@ -49,7 +49,7 @@ Common parameters and returns (applies to all items below):
 - into: optional output buffer (see below)
 - maclen: MAC tag length 16 or 32 bytes (default 16)
 
-Only the first few can be positional arguments that are always provided in this order. All arguments can be passed as kwargs. The inputs can be any Buffer supporting len() (e.g. `bytes`, `bytearray`, `memoryview`).
+Only the first few can be positional arguments that are always provided in this order. All arguments can be passed as kwargs. The inputs can be any Buffer (e.g. `bytes`, `bytearray`, `memoryview`).
 
 Most functions return a buffer of bytes. By default a `bytearray` of the correct size is returned. An existing buffer can be provided by `into` argument, in which case the bytes of it that were written to are returned as a memoryview.
 
@@ -239,7 +239,7 @@ Note: this is seekable by converting the block number to nonce with `idx.to_byte
 
 ### Preallocated output buffers (into=)
 
-For advanced use cases, the output buffer can be supplied with `into` kwarg. Any type of writable buffer with len() >= space required can be used. This includes bytearrays, memoryviews, mmap files, numpy.getbuffer etc.
+For advanced use cases, the output buffer can be supplied with `into` kwarg. Any type of writable buffer with a sufficient number of bytes can be used. This includes bytearrays, memoryviews, mmap files, numpy arrays etc.
 
 A `TypeError` is raised if the buffer is too small. For convenience, the functions return a memoryview showing only the bytes actually written.
 
@@ -249,11 +249,11 @@ Foreign arrays can be used. This example fills a Numpy array with random integer
 import numpy as np
 from pyaegis import aegis128x4 as ciph
 key, nonce = ciph.random_key(), ciph.random_nonce()
+
 arr = np.empty(10, dtype=np.uint64)  # Uninitialised integer array
 ciph.stream(key, nonce, into=arr)    # Fill with random bytes
 print(arr)
 ```
-
 
 In-place operations are supported when the input and the output point to the same location in memory. When using attached MAC tag, the input buffer needs to be sliced to correct length:
 
@@ -276,16 +276,10 @@ Detached and unauthenticated modes can use same size input and output (no MAC ad
 
 Runtime CPU feature detection selects optimized code paths (AES-NI, ARM Crypto, AVX2/AVX-512). Multi-lane variants (x2/x4) offer higher throughput on suitable CPUs.
 
-Run the built-in benchmark to see which variant is fastest on your machine:
+Benchmarks using the included benchmark module, run on Intel i7-14700, linux, single core (the software is not multithreaded). Note that the results are in megabits per second, not bytes. The CPU lacks AVX-512 that makes the X4 variants faster on AMD hardware.
 
 ```fish
-uv run -m pyaegis.benchmark
-```
-
-Benchmarks of the Python module and the C library run on Intel i7-14700, linux, single core (the software is not multithreaded). Note that the results are in megabits per second, not bytes. The CPU lacks AVX-512 that makes the X4 variants faster on AMD hardware.
-
-```fish
-$ python -m pyaegis.benchmark
+$ uv run -m pyaegis.benchmark
 AEGIS-256        107666.56 Mb/s
 AEGIS-256X2      191314.53 Mb/s
 AEGIS-256X4      211537.44 Mb/s

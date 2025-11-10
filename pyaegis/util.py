@@ -11,12 +11,9 @@ from ._loader import ffi
 __all__ = ["new_aligned_struct", "aligned_address", "Buffer", "nonce_increment", "wipe"]
 
 try:
-    from collections.abc import Buffer as _Buffer  # type: ignore[misc]
-
-    class Buffer(_Buffer, Protocol):  # type: ignore[misc]
-        pass
+    from collections.abc import Buffer  # type: ignore
 except ImportError:
-
+    # Fallback for Python < 3.12
     class Buffer(Protocol):
         def __buffer__(self, flags: int) -> memoryview: ...
 
