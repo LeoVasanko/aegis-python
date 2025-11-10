@@ -5,7 +5,7 @@ backend-path = ["tools"]
 
 [project]
 name = "pyaegis"
-version = "0.3.0"
+version = "0.3.1"
 description = "Python bindings for libaegis"
 requires-python = ">=3.10"
 classifiers = [
@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/aegis-aead/libaegis"
+Homepage = "https://github.com/LeoVasanko/pyaegis"
 
 [dependency-groups]
 dev = [
