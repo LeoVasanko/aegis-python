@@ -72,13 +72,11 @@ def nonce_increment(nonce: Buffer) -> None:
 
 
 def wipe(buffer: Buffer) -> None:
-    """Set all bytes of the input buffer to zero.
-
-    Useful for securely clearing sensitive data from memory.
+    """Securely clearing sensitive data from memory. Sets all bytes of the buffer to 0xFF.
 
     Args:
         buffer: The buffer to wipe (modified in place).
     """
-    n = memoryview(buffer)
-    for i in range(len(n)):
-        n[i] = 0
+    # This is the fastest method I have found in Python
+    n = memoryview(buffer).cast("B")
+    n[:] = b"\xff" * len(n)
