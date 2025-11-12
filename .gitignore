@@ -4,8 +4,8 @@
 /dist
 /build
 /pyaegis/build
-/pyaegis/_aegis.*.so
-/pyaegis/_aegis.*.pyd
+/pyaegis/_aegis*.so
+/pyaegis/_aegis*.pyd
 __pycache__
 !.gitignore
 !.gitmodules

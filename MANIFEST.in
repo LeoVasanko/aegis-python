@@ -4,10 +4,8 @@ include tools/build_backend.py
 include BUILD.md
 include README.md
 recursive-include libaegis *.c *.h *.zig *.zon
-include libaegis/CMakeLists.txt
 include libaegis/LICENSE
 include libaegis/README.md
-recursive-include libaegis/cmake *.cmake *.cmake.in
 graft libaegis/src
 include libaegis/build.zig
 include libaegis/build.zig.zon

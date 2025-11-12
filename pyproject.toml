@@ -1,11 +1,11 @@
 [build-system]
-requires = ["setuptools>=61.0", "cffi>=2.0.0"]
+requires = ["setuptools>=61.0", "cffi>=2.0.0", "setuptools-scm>=8.0"]
 build-backend = "build_backend"
 backend-path = ["tools"]
 
 [project]
 name = "pyaegis"
-version = "0.3.1"
+dynamic = ["version"]
 description = "Python bindings for libaegis"
 requires-python = ">=3.10"
 classifiers = [
@@ -25,7 +25,9 @@ Homepage = "https://github.com/LeoVasanko/pyaegis"
 [dependency-groups]
 dev = [
     "pytest>=8.4.2",
+    "ruff>=0.14.4",
     "setuptools>=80.9.0",
+    "setuptools-scm>=9.2.2",
 ]
 
 [tool.setuptools]
@@ -33,3 +35,5 @@ packages = ["pyaegis"]
 
 [tool.setuptools.package-data]
 pyaegis = ["*.h", "*.so", "*.pyd"]
+
+[tool.setuptools_scm]
