@@ -1,6 +1,5 @@
 """Setup script for pyaegis - builds CFFI extension with libaegis C library."""
 
-import os
 import sys
 from pathlib import Path
 

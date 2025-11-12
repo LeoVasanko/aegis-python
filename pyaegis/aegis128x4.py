@@ -295,9 +295,7 @@ def decrypt(
         out = bytearray(expected_out)
     else:
         if into.nbytes < expected_out:
-            raise TypeError(
-                "into length must be at least ct.nbytes - maclen"
-            )
+            raise TypeError("into length must be at least ct.nbytes - maclen")
         out = into
 
     rc = _lib.aegis128x4_decrypt(
@@ -582,7 +580,9 @@ class Mac:
             out = into
 
         clone = self.clone()
-        rc = _lib.aegis128x4_mac_final(clone._proxy.ptr, ffi.from_buffer(out), memoryview(out).nbytes)
+        rc = _lib.aegis128x4_mac_final(
+            clone._proxy.ptr, ffi.from_buffer(out), memoryview(out).nbytes
+        )
         if rc != 0:
             err_num = ffi.errno
             err_name = errno.errorcode.get(err_num, f"errno_{err_num}")
@@ -851,7 +851,9 @@ class Decryptor:
             err_name = errno.errorcode.get(err_num, f"errno_{err_num}")
             raise RuntimeError(f"state decrypt update failed: {err_name}")
         w = int(written[0])
-        assert w == expected_out, f"got {w}, expected {expected_out}, ct.nbytes={ct.nbytes}"
+        assert w == expected_out, (
+            f"got {w}, expected {expected_out}, ct.nbytes={ct.nbytes}"
+        )
         return out if into is None else memoryview(out)[:w]  # type: ignore
 
     def final(self, mac: Buffer) -> None:
