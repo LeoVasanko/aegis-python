@@ -267,7 +267,7 @@ def generate_python_modules(
         if dst.exists() and dst.read_text(encoding="utf-8") == new_content:
             unchanged.append(dst)
         else:
-            dst.write_text(new_content, encoding="utf-8")
+            dst.write_bytes(new_content.encode())
             updated.append(dst)
 
     return updated, unchanged
@@ -301,7 +301,7 @@ def main() -> int:
     if cdef_path.exists() and cdef_path.read_text(encoding="utf-8") == cdef_content:
         print(f"  - No changes to {cdef_path}", file=sys.stderr)
     else:
-        cdef_path.write_text(cdef_content, encoding="utf-8")
+        cdef_path.write_bytes(cdef_content.encode())
         print(f"  - Updated {cdef_path}", file=sys.stderr)
 
     print("Step 3: Generating Python modules...", file=sys.stderr)
