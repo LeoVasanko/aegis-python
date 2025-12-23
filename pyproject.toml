@@ -18,7 +18,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/LeoVasanko/aegis-python"
+Homepage = "https://git.zi.fi/LeoVasanko/aegis-python"
+Repository = "https://github.com/LeoVasanko/aegis-python"
 
 [dependency-groups]
 dev = [
