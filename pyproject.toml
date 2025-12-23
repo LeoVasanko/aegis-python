@@ -7,6 +7,7 @@ backend-path = ["tools"]
 name = "aeg"
 dynamic = ["version"]
 description = "AEGIS encryption easy to use Python binding. Wheels for major platforms."
+readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.10"
 classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
