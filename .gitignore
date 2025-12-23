@@ -3,9 +3,9 @@
 *.egg-info
 /dist
 /build
-/pyaegis/build
-/pyaegis/_aegis*.so
-/pyaegis/_aegis*.pyd
+/src/aeg/build
+/src/aeg/_aegis*.so
+/src/aeg/_aegis*.pyd
 __pycache__
 !.gitignore
 !.gitmodules

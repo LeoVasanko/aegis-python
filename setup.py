@@ -1,4 +1,4 @@
-"""Setup script for pyaegis - builds CFFI extension with libaegis C library."""
+"""Setup script for aeg - builds CFFI extension with libaegis C library."""
 
 import sys
 from pathlib import Path
@@ -20,7 +20,7 @@ if not libaegis_include.exists():
 include_dirs = [str(libaegis_include)]
 
 # Read the CDEF header
-cdef_path = Path(__file__).parent / "pyaegis" / "aegis_cdef.h"
+cdef_path = Path(__file__).parent / "src" / "aeg" / "aegis_cdef.h"
 cdef_content = cdef_path.read_text(encoding="utf-8")
 
 # Create CFFI builder
@@ -29,7 +29,7 @@ ffibuilder.cdef(cdef_content)
 
 # Set the source
 ffibuilder.set_source(
-    "pyaegis._aegis",  # module name
+    "aeg._aegis",  # module name
     """
     #include "aegis.h"
     #include "aegis128l.h"

@@ -4,7 +4,7 @@ build-backend = "build_backend"
 backend-path = ["tools"]
 
 [project]
-name = "pyaegis"
+name = "aeg"
 dynamic = ["version"]
 description = "Python bindings for libaegis"
 requires-python = ">=3.10"
@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/LeoVasanko/pyaegis"
+Homepage = "https://github.com/LeoVasanko/aeg"
 
 [dependency-groups]
 dev = [
@@ -31,9 +31,10 @@ dev = [
 ]
 
 [tool.setuptools]
-packages = ["pyaegis"]
+package-dir = {"" = "src"}
+packages = ["aeg"]
 
 [tool.setuptools.package-data]
-pyaegis = ["*.h", "*.so", "*.pyd"]
+aeg = ["*.h", "*.so", "*.pyd"]
 
 [tool.setuptools_scm]

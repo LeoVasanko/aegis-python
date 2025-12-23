@@ -1,4 +1,4 @@
-"""Utility helpers for pyaegis.
+"""Utility helpers for aeg.
 
 Currently provides Python-side aligned allocation helpers that avoid relying
 on libc/posix_memalign. Memory is owned by Python; C code only borrows it.

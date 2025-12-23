@@ -1,4 +1,4 @@
-include pyaegis/aegis_cdef.h
+include src/aeg/aegis_cdef.h
 include setup.py
 include tools/build_backend.py
 include BUILD.md

@@ -112,8 +112,8 @@ def normalize_line_endings(repo_root: Path):
     """Normalize all text files to LF line endings."""
     # Patterns for files to normalize
     patterns = [
-        "pyaegis/**/*.py",
-        "pyaegis/**/*.h",
+        "src/aeg/**/*.py",
+        "src/aeg/**/*.h",
         "tests/**/*.py",
         "tools/**/*.py",
         "*.py",
@@ -168,7 +168,7 @@ def main():
     # Main header for the packaging process
     print(f"\n{'=' * 70}")
     print(
-        f"Packaging pyaegis-{version}"
+        f"Packaging aeg-{version}"
         + (" for release" if is_release else " (not release)")
     )
     print(f"Building wheels for Python versions: {', '.join(PYTHON_VERSIONS)}")
@@ -202,7 +202,7 @@ def main():
             continue
 
         # Find the wheel for this version
-        wheel_pattern = f"pyaegis-*-cp{py_version.replace('.', '')}-*.whl"
+        wheel_pattern = f"aeg-*-cp{py_version.replace('.', '')}-*.whl"
         wheels = list(dist_dir.glob(wheel_pattern))
         if not wheels:
             print(f"✗ Could not find wheel for Python {py_version}", file=sys.stderr)
@@ -241,7 +241,7 @@ def main():
             "--with",
             str(wheel),
             "-m",
-            "pyaegis.benchmark",
+            "aeg.benchmark",
         ]
         if not run_command(bench_cmd, f"Running benchmark for Python {py_version}"):
             print(f"✗ Benchmark failed for Python {py_version}", file=sys.stderr)
