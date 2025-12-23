@@ -91,13 +91,13 @@ The object releases its state and becomes unusable after final has been called.
 
 No encryption, but prevents changes to the data without the correct key.
 
-- mac(key, nonce, data, maclen=16, into=None) -> mac
+- mac(key, nonce, data, maclen=16, into=None) -> mac bytes
 - Mac(key, nonce, maclen=16)
     - update(data)
-    - final([into]) -> mac
+    - final([into]) -> mac bytes
     - verify(mac) -> raises ValueError on failure
-    - digest() -> bytes
-    - hexdigest() -> str
+    - digest() -> mac bytes
+    - hexdigest() -> mac str
     - reset()
     - clone() -> Mac
 
@@ -321,4 +321,4 @@ AEGIS-256X4 MAC  392088.05 Mb/s
 
 ## Alternatives
 
-There is also a package named `pyaegis` on PyPI that is unrelated to this module, but that also binds to libaegis C library. Note that there are also a number of modules named `aegis` from different packages not at all related to the encryption algorithm.
+There is also a package named [pyaegis](https://github.com/jedisct1/pyaegis) on PyPI that is unrelated to this module, but that also binds to the libaegis C library. There are also a number of modules named aegis from different packages not at all related to the encryption algorithm.
