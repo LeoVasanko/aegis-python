@@ -8,21 +8,27 @@ AEGIS enables extremely fast Encryption, MAC and CSPRNG - many times faster than
 
 ## Install
 
-Using [uv](https://docs.astral.sh/uv/getting-started/installation/):
-```fish
-uv pip install aeg
+```sh
+pip install aeg
 ```
 
-For development builds, see BUILD.md.
+Or add to your project using [UV](https://docs.astral.sh/uv/getting-started/installation/):
+```sh
+uv add aeg
+```
 
 ## Variants
 
-All submodules expose the same API; pick one for your key/nonce size and platform:
+All submodules expose the same API; pick one for your needs. The 256 bit variants offer maximal security and use larger key and nonce, while the 128 bit variants run slightly faster and use smaller key and nonce while still providing strong security. The MAC length does not depend on the variant. Note that the x2 and x4 variants are typically the fastest (depending on CPU) by utilizing SIMD multi-lane processing for the highest throughput.
 
-- aegis128l (16-byte key, 16-byte nonce)
-- aegis256 (32-byte key, 32-byte nonce)
-- aegis128x2 / aegis128x4 (multi-lane 128-bit; best throughput on SIMD-capable CPUs)
-- aegis256x2 / aegis256x4 (multi-lane 256-bit)
+| Variant        | Key/Nonce Bytes | Notes                   |
+|----------------|----------------:|-------------------------|
+| **aegis128l**  | 16              |                         |
+| **aegis128x2** | 16              | Fastest on Intel Core   |
+| **aegis128x4** | 16              | Fastest on AMD and Xeon |
+| **aegis256**   | 32              |                         |
+| **aegis256x2** | 32              | Fast on Intel Core      |
+| **aegis256x4** | 32              | Fast on AMD and Xeon    |
 
 ## Quick start
 
@@ -278,10 +284,10 @@ Detached and unauthenticated modes can use same size input and output (no MAC ad
 
 Runtime CPU feature detection selects optimized code paths (AES-NI, ARM Crypto, AVX2/AVX-512). Multi-lane variants (x2/x4) offer higher throughput on suitable CPUs.
 
-Benchmarks using the included benchmark module, run on Intel i7-14700, linux, single core (the software is not multithreaded). Note that the results are in megabits per second, not bytes. The CPU lacks AVX-512 that makes the X4 variants faster on AMD hardware.
+Benchmarks using the included benchmark module, run on Intel i7-14700, linux, single core (the software is not multithreaded). Note that the results are in megabits per second, not bytes. The CPU lacks AVX-512 that makes the X4 variants faster on processors supporting it (most AMD, Xeon).
 
-```fish
-$ uv run -m aeg.benchmark
+```sh
+uv run -m aeg.benchmark
 AEGIS-256        103166.24 Mb/s
 AEGIS-256X2      184225.50 Mb/s
 AEGIS-256X4      194018.26 Mb/s
@@ -297,8 +303,8 @@ AEGIS-256X4 MAC  315919.87 Mb/s
 ```
 
 The Python library performance is similar to that of the C library:
-```fish
-$ ./libaegis/zig-out/bin/benchmark
+```sh
+./libaegis/zig-out/bin/benchmark
 AEGIS-256        107820.86 Mb/s
 AEGIS-256X2      205025.57 Mb/s
 AEGIS-256X4      223361.81 Mb/s
@@ -312,7 +318,6 @@ AEGIS-256 MAC    116776.62 Mb/s
 AEGIS-256X2 MAC  224150.04 Mb/s
 AEGIS-256X4 MAC  392088.05 Mb/s
 ```
-
 
 ## Alternatives
 

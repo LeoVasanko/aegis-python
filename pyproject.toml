@@ -6,11 +6,9 @@ backend-path = ["tools"]
 [project]
 name = "aeg"
 dynamic = ["version"]
-description = "Python bindings for libaegis"
+description = "AEGIS encryption easy to use Python binding. Wheels for major platforms."
 requires-python = ">=3.10"
 classifiers = [
-  "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: Implementation :: CPython",
   "Operating System :: OS Independent",
   "Topic :: Security :: Cryptography",
@@ -20,7 +18,7 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/LeoVasanko/aeg"
+Homepage = "https://github.com/LeoVasanko/aegis-python"
 
 [dependency-groups]
 dev = [
