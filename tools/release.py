@@ -211,6 +211,43 @@ def main():
 
         wheel = wheels[0]
 
+        # Repair wheel with auditwheel for manylinux compatibility
+        repair_cmd = [
+            "uv",
+            "run",
+            "auditwheel",
+            "repair",
+            str(wheel),
+            "-w",
+            str(dist_dir),
+        ]
+        if not run_command(
+            repair_cmd, f"Repairing wheel for Python {py_version} with auditwheel"
+        ):
+            print(
+                f"✗ Auditwheel repair failed for Python {py_version}", file=sys.stderr
+            )
+            failed_builds.append(py_version)
+            continue
+
+        # Find the repaired wheel (it will have a different name)
+        all_wheels = list(dist_dir.glob(f"aeg-*-cp{py_version.replace('.', '')}-*.whl"))
+        repaired_wheels = [w for w in all_wheels if "linux_x86_64" not in str(w)]
+        if not repaired_wheels:
+            print(
+                f"✗ Could not find repaired (manylinux) wheel for Python {py_version}",
+                file=sys.stderr,
+            )
+            failed_builds.append(py_version)
+            continue
+
+        wheel = repaired_wheels[0]  # Use the repaired wheel for testing
+
+        # Remove the unrepaired linux_x86_64 wheels
+        for w in all_wheels:
+            if "linux_x86_64" in str(w):
+                w.unlink()
+
         # Test the wheel with pytest (use --isolated to avoid .venv conflicts)
         test_cmd = [
             "uv",
