@@ -1,14 +1,16 @@
-# pyaegis
+# AEGIS Cipher Python Binding
 
-[![PyPI version](https://badge.fury.io/py/pyaegis.svg)](https://badge.fury.io/py/pyaegis)
+[![PyPI version](https://badge.fury.io/py/aeg.svg)](https://badge.fury.io/py/aeg)
 
-Safe Python bindings for the AEGIS family of very fast authenticated encryption algorithms (via libaegis).
+Safe Python bindings for the AEGIS family of very fast authenticated encryption algorithms via libaegis. The module runs without compilation required on Windows, Mac and Linux (has precompiled wheels). For other platforms compilation is performed at install time.
+
+AEGIS enables extremely fast Encryption, MAC and CSPRNG - many times faster than AES, ChaCha20 or traditional random number generators. Authenticated Encryption with Additional Data is supported with the MAC derived from the cipher state at the end, making it different from other AEADs like AES-GCM and ChaCha20-Poly1305. The whole internal state thus depends on the prior data, and it is neither Encrypt-Then-Mac nor Mac-The-Encrypt scheme when both features are used together.
 
 ## Install
 
 Using [uv](https://docs.astral.sh/uv/getting-started/installation/):
 ```fish
-uv pip install git+https://github.com/LeoVasanko/pyaegis.git
+uv pip install aeg
 ```
 
 For development builds, see BUILD.md.
@@ -27,7 +29,7 @@ All submodules expose the same API; pick one for your key/nonce size and platfor
 Normal authenticated encryption using the AEGIS-128X4 algorithm:
 
 ```python
-from pyaegis import aegis128x4 as ciph
+from aeg import aegis128x4 as ciph
 
 key = ciph.random_key()      # Secret key (stored securely)
 nonce = ciph.random_nonce()  # Public nonce (recreated for each message)
@@ -123,7 +125,7 @@ Constants (per module): NAME, KEYBYTES, NONCEBYTES, MACBYTES, MACBYTES_LONG, RAT
 
 A cryptographically secure keyed hash is produced. The example uses all zeroes for the nonce to always produce the same hash for the same key:
 ```python
-from pyaegis import aegis256x4 as ciph
+from aeg import aegis256x4 as ciph
 key, nonce = ciph.random_key(), bytes(ciph.NONCEBYTES)
 
 mac = ciph.mac(key, nonce, b"message", maclen=32)
@@ -146,7 +148,7 @@ b.verify(mac)  # Raises ValueError
 Keeping the ciphertext, mac and ad separate. The ad represents a file header that needs to be tamper proofed.
 
 ```python
-from pyaegis import aegis256x4 as ciph
+from aeg import aegis256x4 as ciph
 key, nonce = ciph.random_key(), ciph.random_nonce()
 
 ct, mac = ciph.encrypt_detached(key, nonce, b"secret", ad=b"header")
@@ -162,7 +164,7 @@ ciph.wipe(pt)
 Class-based interface for incremental updates is an alternative to the one-shot functions. Not to be confused with separately verified ciphertext frames (see the next example).
 
 ```python
-from pyaegis import aegis256x4 as ciph
+from aeg import aegis256x4 as ciph
 key, nonce = ciph.random_key(), ciph.random_nonce()
 
 enc = ciph.Encryptor(key, nonce, ad=b"header", maclen=16)
@@ -182,7 +184,7 @@ It is often practical to split larger messages into frames that can be individua
 
 ```python
 # Encryption settings
-from pyaegis import aegis128x4 as ciph
+from aeg import aegis128x4 as ciph
 key = b"sixteenbyte key!"  # 16 bytes secret key for aegis128* algorithms
 framebytes = 80  # In real applications 1 MiB or more is practical
 maclen = ciph.MACBYTES  # 16
@@ -202,7 +204,7 @@ with open("encrypted.bin", "wb") as f:
 
 ```python
 # Decryption needs same values as encryption
-from pyaegis import aegis128x4 as ciph
+from aeg import aegis128x4 as ciph
 key = b"sixteenbyte key!"
 framebytes = 80
 maclen = ciph.MACBYTES
@@ -223,7 +225,7 @@ with open("encrypted.bin", "rb") as f:
 The stream generator is much faster than any traditional random number generator, cryptographically secure and seekable. Use `random_key()` for unpredictable output.
 
 ```python
-from pyaegis import aegis128x4 as ciph
+from aeg import aegis128x4 as ciph
 
 key = b"SeedForReplay001"  # A non-random deterministic seed (16 bytes)
 nonce = bytearray(ciph.NONCEBYTES)  # All-zeroes nonce
@@ -247,7 +249,7 @@ Foreign arrays can be used. This example fills a Numpy array with random integer
 
 ```python
 import numpy as np
-from pyaegis import aegis128x4 as ciph
+from aeg import aegis128x4 as ciph
 key, nonce = ciph.random_key(), ciph.random_nonce()
 
 arr = np.empty(10, dtype=np.uint64)  # Uninitialised integer array
@@ -258,7 +260,7 @@ print(arr)
 In-place operations are supported when the input and the output point to the same location in memory. When using attached MAC tag, the input buffer needs to be sliced to correct length:
 
 ```python
-from pyaegis import aegis256x4 as ciph
+from aeg import aegis256x4 as ciph
 key, nonce = ciph.random_key(), ciph.random_nonce()
 buf = memoryview(bytearray(1000))  # memoryview[:len] is still in the same buffer (no copy)
 buf[:7] = b"message"
@@ -279,7 +281,7 @@ Runtime CPU feature detection selects optimized code paths (AES-NI, ARM Crypto, 
 Benchmarks using the included benchmark module, run on Intel i7-14700, linux, single core (the software is not multithreaded). Note that the results are in megabits per second, not bytes. The CPU lacks AVX-512 that makes the X4 variants faster on AMD hardware.
 
 ```fish
-$ uv run -m pyaegis.benchmark
+$ uv run -m aeg.benchmark
 AEGIS-256        103166.24 Mb/s
 AEGIS-256X2      184225.50 Mb/s
 AEGIS-256X4      194018.26 Mb/s
@@ -310,3 +312,8 @@ AEGIS-256 MAC    116776.62 Mb/s
 AEGIS-256X2 MAC  224150.04 Mb/s
 AEGIS-256X4 MAC  392088.05 Mb/s
 ```
+
+
+## Alternatives
+
+There is also a package named `pyaegis` on PyPI that is unrelated to this module, but that also binds to libaegis C library. Note that there are also a number of modules named `aegis` from different packages not at all related to the encryption algorithm.

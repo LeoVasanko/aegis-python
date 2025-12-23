@@ -6,7 +6,7 @@ after calling final(), preventing accidental misuse.
 
 import pytest
 
-from pyaegis import aegis128l, aegis128x2, aegis128x4, aegis256, aegis256x2, aegis256x4
+from aeg import aegis128l, aegis128x2, aegis128x4, aegis256, aegis256x2, aegis256x4
 
 # All AEGIS algorithm modules
 ALL_ALGORITHMS = [aegis128l, aegis128x2, aegis128x4, aegis256, aegis256x2, aegis256x4]

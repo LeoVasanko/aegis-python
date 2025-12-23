@@ -15,7 +15,7 @@ def _check_zig_available():
             "\n" + "=" * 70 + "\n"
             "ERROR: Zig compiler not found!\n"
             "\n"
-            "Building pyaegis requires the Zig compiler to build the libaegis\n"
+            "Building aeg requires the Zig compiler to build the libaegis\n"
             "static library. Please install Zig before building this package.\n"
             "\n"
             "Installation instructions:\n"

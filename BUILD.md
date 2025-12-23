@@ -1,6 +1,6 @@
-# Building pyaegis
+# Building aeg
 
-This document contains instructions for developers who want to build pyaegis from source.
+This document contains instructions for developers who want to build aeg from source.
 
 ## Prerequisites
 
@@ -11,7 +11,7 @@ This document contains instructions for developers who want to build pyaegis fro
 
 ### Installing Zig
 
-pyaegis uses Zig to build the underlying libaegis C library. Install Zig from [ziglang.org/download](https://ziglang.org/download/) or using your package manager:
+aeg uses Zig to build the underlying libaegis C library. Install Zig from [ziglang.org/download](https://ziglang.org/download/) or using your package manager:
 
 - **macOS**: `brew install zig`
 - **Linux**: See [Zig installation guide](https://github.com/ziglang/zig/wiki/Install-Zig-from-a-Package-Manager)
@@ -22,8 +22,8 @@ pyaegis uses Zig to build the underlying libaegis C library. Install Zig from [z
 Clone the repository with submodules:
 
 ```fish
-git clone --recursive https://github.com/LeoVasanko/pyaegis.git
-cd pyaegis
+git clone --recursive https://github.com/LeoVasanko/aeg.git
+cd aeg
 ```
 
 If you already cloned without `--recursive`, initialize submodules:
@@ -74,7 +74,7 @@ This creates files in the `dist/` directory.
 
 ## Code Generation
 
-The Python modules and CFFI definitions are generated from C sources and templates. If you modify the core implementation in `pyaegis/aegis256x4.py` or update libaegis headers, regenerate all files:
+The Python modules and CFFI definitions are generated from C sources and templates. If you modify the core implementation in `src/aeg/aegis256x4.py` or update libaegis headers, regenerate all files:
 
 ```fish
 python tools/generate.py
@@ -100,7 +100,7 @@ If you cannot install Zig, you may manually compile in the libaegis folder (Zig,
 
 ## Project Structure
 
-- `pyaegis/` - Python package source
+- `src/aeg/` - Python package source
 - `libaegis/` - C library source (submodule)
 - `tests/` - Test suite
 - `tools/` - Code generation scripts and `build_backend.py` used to build libaegis

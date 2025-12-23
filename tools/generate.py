@@ -277,7 +277,7 @@ def main() -> int:
     root = pathlib.Path(__file__).parent.parent
     libaegis_src_dir = root / "libaegis" / "src"
     include_dir = libaegis_src_dir / "include"
-    pyaegis_dir = root / "pyaegis"
+    pyaegis_dir = root / "src" / "aeg"
 
     if not include_dir.exists():
         print(f"Include directory not found: {include_dir}", file=sys.stderr)
