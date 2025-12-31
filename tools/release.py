@@ -205,10 +205,17 @@ def main():
         # Find the wheel for this version
         if py_version.startswith("pypy"):
             # PyPy wheels use pp3XX format
-            version_tag = f"pp{py_version.replace('pypy', '').replace('.', '')}"
+            wheel_pattern = (
+                f"aeg-*-pp{py_version.replace('pypy', '').replace('.', '')}-*.whl"
+            )
+        elif py_version.endswith("t"):
+            # Free-threaded Python wheels use cpXXX-cpXXXt format (e.g., cp314-cp314t)
+            base_version = py_version.replace(".", "").replace("t", "")
+            wheel_pattern = f"aeg-*-cp{base_version}-cp{base_version}t-*.whl"
         else:
-            version_tag = f"cp{py_version.replace('.', '').replace('t', '')}"
-        wheel_pattern = f"aeg-*-{version_tag}-*.whl"
+            # Regular CPython wheels use cpXXX-cpXXX format
+            base_version = py_version.replace(".", "")
+            wheel_pattern = f"aeg-*-cp{base_version}-cp{base_version}-*.whl"
         wheels = list(dist_dir.glob(wheel_pattern))
         if not wheels:
             print(f"✗ Could not find wheel for Python {py_version}", file=sys.stderr)
@@ -239,7 +246,18 @@ def main():
                 continue
 
             # Find the repaired wheel (it will have a different name)
-            all_wheels = list(dist_dir.glob(f"aeg-*-{version_tag}-*.whl"))
+            # Use same pattern logic as above for free-threaded vs regular builds
+            if py_version.startswith("pypy"):
+                repair_pattern = (
+                    f"aeg-*-pp{py_version.replace('pypy', '').replace('.', '')}-*.whl"
+                )
+            elif py_version.endswith("t"):
+                base_version = py_version.replace(".", "").replace("t", "")
+                repair_pattern = f"aeg-*-cp{base_version}-cp{base_version}t-*.whl"
+            else:
+                base_version = py_version.replace(".", "")
+                repair_pattern = f"aeg-*-cp{base_version}-cp{base_version}-*.whl"
+            all_wheels = list(dist_dir.glob(repair_pattern))
             repaired_wheels = [w for w in all_wheels if "linux_x86_64" not in str(w)]
             if not repaired_wheels:
                 print(
@@ -305,8 +323,8 @@ def main():
 
     if failed_builds:
         print(f"\nFailed builds: {len(failed_builds)}")
-        for version in failed_builds:
-            print(f"  ✗ Python {version}")
+        for failed_version in failed_builds:
+            print(f"  ✗ Python {failed_version}")
 
     if not successful_wheels:
         print("\n✗ No successful wheels to upload")
