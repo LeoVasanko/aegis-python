@@ -205,13 +205,10 @@ def main():
         # Find the wheel for this version
         if py_version.startswith("pypy"):
             # PyPy wheels use pp3XX format
-            wheel_pattern = (
-                f"aeg-*-pp{py_version.replace('pypy', '').replace('.', '')}-*.whl"
-            )
+            version_tag = f"pp{py_version.replace('pypy', '').replace('.', '')}"
         else:
-            wheel_pattern = (
-                f"aeg-*-cp{py_version.replace('.', '').replace('t', '')}-*.whl"
-            )
+            version_tag = f"cp{py_version.replace('.', '').replace('t', '')}"
+        wheel_pattern = f"aeg-*-{version_tag}-*.whl"
         wheels = list(dist_dir.glob(wheel_pattern))
         if not wheels:
             print(f"✗ Could not find wheel for Python {py_version}", file=sys.stderr)
@@ -242,9 +239,7 @@ def main():
                 continue
 
             # Find the repaired wheel (it will have a different name)
-            all_wheels = list(
-                dist_dir.glob(f"aeg-*-cp{py_version.replace('.', '')}-*.whl")
-            )
+            all_wheels = list(dist_dir.glob(f"aeg-*-{version_tag}-*.whl"))
             repaired_wheels = [w for w in all_wheels if "linux_x86_64" not in str(w)]
             if not repaired_wheels:
                 print(
