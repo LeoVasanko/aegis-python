@@ -1,3 +1,4 @@
+#!/usr/bin/env -S uv run
 """Generate CFFI cdef and Python modules from libaegis C sources."""
 
 import pathlib

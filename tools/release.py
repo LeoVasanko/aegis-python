@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run
 """Build wheels for all supported Python versions using uv."""
 
 import platform
