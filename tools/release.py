@@ -7,22 +7,24 @@ import subprocess
 import sys
 from pathlib import Path
 
-import tomllib
-from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 
 # Import generate module from same directory
 sys.path.insert(0, str(Path(__file__).parent))
 import generate
 
-
-def get_python_versions():
-    """Get supported Python versions."""
-    pyproject_toml = Path(__file__).parent.parent / "pyproject.toml"
-    data = tomllib.loads(pyproject_toml.read_text(encoding="utf-8"))
-    spec = SpecifierSet(data["project"]["requires-python"])
-    # Generate versions that match the specifier (up to Python 3.14)
-    return [f"3.{minor}" for minor in range(10, 15) if f"3.{minor}" in spec]
+PYTHON_VERSIONS = [
+    "3.10",
+    "3.11",
+    "3.12",
+    "3.13",
+    "3.14",
+    "3.14t",
+    "3.15",
+    "3.15t",
+    "pypy3.10",
+    "pypy3.11",
+]
 
 
 def get_version_from_scm():
@@ -90,9 +92,6 @@ def make_release_message(version):
         f"\nIf the build didn't work, delete the tag with git tag -d v{next_version}\n"
     )
     return msg
-
-
-PYTHON_VERSIONS = get_python_versions()
 
 
 def run_command(cmd, description):
@@ -204,7 +203,15 @@ def main():
             continue
 
         # Find the wheel for this version
-        wheel_pattern = f"aeg-*-cp{py_version.replace('.', '')}-*.whl"
+        if py_version.startswith("pypy"):
+            # PyPy wheels use pp3XX format
+            wheel_pattern = (
+                f"aeg-*-pp{py_version.replace('pypy', '').replace('.', '')}-*.whl"
+            )
+        else:
+            wheel_pattern = (
+                f"aeg-*-cp{py_version.replace('.', '').replace('t', '')}-*.whl"
+            )
         wheels = list(dist_dir.glob(wheel_pattern))
         if not wheels:
             print(f"✗ Could not find wheel for Python {py_version}", file=sys.stderr)
