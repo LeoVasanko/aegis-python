@@ -17,19 +17,6 @@ Or add to your project using [UV](https://docs.astral.sh/uv/getting-started/inst
 uv add aeg
 ```
 
-## Variants
-
-All submodules expose the same API; pick one for your needs. The 256 bit variants offer maximal security and use larger key and nonce, while the 128 bit variants run slightly faster and use smaller key and nonce while still providing strong security. The MAC length does not depend on the variant. Note that the x2 and x4 variants are typically the fastest (depending on CPU) by utilizing SIMD multi-lane processing for the highest throughput.
-
-| Variant        | Key/Nonce Bytes | Notes                   |
-|----------------|----------------:|-------------------------|
-| **aegis128l**  | 16              |                         |
-| **aegis128x2** | 16              | Fastest on Intel Core   |
-| **aegis128x4** | 16              | Fastest on AMD and Xeon |
-| **aegis256**   | 32              |                         |
-| **aegis256x2** | 32              | Fast on Intel Core      |
-| **aegis256x4** | 32              | Fast on AMD and Xeon    |
-
 ## Quick start
 
 Normal authenticated encryption using the AEGIS-128X4 algorithm:
@@ -44,6 +31,27 @@ msg = b"hello"
 ct = ciph.encrypt(key, nonce, msg)
 pt = ciph.decrypt(key, nonce, ct)   # Raises ValueError if anything was tampered with
 assert pt == msg
+```
+
+## Variants
+
+All submodules expose the same API; pick one for your needs. The 256 bit variants offer maximal security and use larger key and nonce, while the 128 bit variants run slightly faster and use smaller key and nonce while still providing strong security. The MAC length does not depend on the variant. Note that the x2 and x4 variants are typically the fastest (depending on CPU) by utilizing SIMD multi-lane processing for the highest throughput.
+
+| Variant        | Key/Nonce Bytes | Notes                   |
+|----------------|----------------:|-------------------------|
+| **aegis128l**  | 16              |                         |
+| **aegis128x2** | 16              | Fastest on Intel Core   |
+| **aegis128x4** | 16              | Fastest on AMD and Xeon |
+| **aegis256**   | 32              |                         |
+| **aegis256x2** | 32              | Fast on Intel Core      |
+| **aegis256x4** | 32              | Fast on AMD and Xeon    |
+
+Instead of importing the submodules, you can obtain one by its name string:
+
+```python
+import aeg
+
+ciph = aeg.cipher("AEGIS-128X2")   # Also accepts "aegis128x2" and other forms
 ```
 
 ## API overview
