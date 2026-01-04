@@ -11,6 +11,8 @@ def cipher(alg: CipherName) -> Cipher:
     name = alg.lower().replace("-", "")
     if name == "aegis128":
         name = "aegis128l"  # AEGIS-128 is dead, the user meant AEGIS-128L
+    if not name.startswith("aegis"):
+        name = "aegis" + name
     if name in CIPHERS.values():
         return importlib.import_module(f".{name}", __package__)  # type: ignore[return-value]
     raise ValueError(f"Unknown algorithm {alg!r}. Valid options: {', '.join(CIPHERS)}")
