@@ -1,6 +1,7 @@
 #!/usr/bin/env -S uv run
 """Build wheels for all supported Python versions using uv."""
 
+import os
 import platform
 import shutil
 import subprocess
@@ -13,18 +14,33 @@ from packaging.version import Version
 sys.path.insert(0, str(Path(__file__).parent))
 import generate
 
-PYTHON_VERSIONS = [
+# Minimum macOS deployment target for compatibility
+MACOS_DEPLOYMENT_TARGET = "11.0"
+
+# ABI3 wheel: built once, works for all GIL-enabled Python versions
+# We use a recent Python to build since it doesn't affect the wheel compatibility
+ABI3_BUILD_VERSION = "3.14+gil"
+
+# All GIL-enabled Python versions covered by the ABI3 wheel
+ABI3_COVERED_VERSIONS = [
     "3.10",
     "3.11",
     "3.12",
-    "3.13",
-    "3.14",
+    "3.13+gil",
+    "3.14+gil",
+    "3.15+gil",
+]
+
+# Non-ABI3 wheels: each needs its own build (free-threaded and PyPy)
+NON_ABI3_VERSIONS = [
     "3.14t",
-    "3.15",
     "3.15t",
     "pypy3.10",
     "pypy3.11",
 ]
+
+# All versions for testing and benchmarking
+ALL_PYTHON_VERSIONS = ABI3_COVERED_VERSIONS + NON_ABI3_VERSIONS
 
 
 def get_version_from_scm():
@@ -94,19 +110,27 @@ def make_release_message(version):
     return msg
 
 
-def run_command(cmd, description):
-    """Run a command and handle errors."""
-    print(f"\n{'=' * 70}")
-    print(f"{description}")
-    print(f"{'=' * 70}")
+def run_command(cmd, description=None, env=None):
+    """Run a command and handle errors. If description is None, only print the command."""
+    if description:
+        print(f"\n{'=' * 70}")
+        print(f"{description}")
+        print(f"{'=' * 70}")
     print(f">>> {' '.join(cmd)}")
     try:
-        subprocess.run(cmd, check=True)
-        print(f"✓ {description} completed successfully")
+        subprocess.run(cmd, check=True, env=env)
         return True
     except subprocess.CalledProcessError as e:
-        print(f"✗ {description} failed with exit code {e.returncode}", file=sys.stderr)
+        print(f"✗ Command failed with exit code {e.returncode}", file=sys.stderr)
         return False
+
+
+def get_build_env():
+    """Get environment variables for building wheels."""
+    env = os.environ.copy()
+    if platform.system() == "Darwin":
+        env["MACOSX_DEPLOYMENT_TARGET"] = MACOS_DEPLOYMENT_TARGET
+    return env
 
 
 def normalize_line_endings(repo_root: Path):
@@ -132,6 +156,160 @@ def normalize_line_endings(repo_root: Path):
                     file_path.write_bytes(content)
 
 
+def get_wheel_pattern(py_version: str, abi3: bool = False) -> str:
+    """Get the glob pattern for finding a wheel file."""
+    if abi3:
+        # ABI3 wheels always use cp310-abi3 tag (minimum supported version)
+        # regardless of which Python version was used to build
+        return "aeg-*-cp310-abi3-*.whl"
+    elif py_version.startswith("pypy"):
+        # PyPy wheels use pp3XX format
+        return f"aeg-*-pp{py_version.replace('pypy', '').replace('.', '')}-*.whl"
+    elif py_version.endswith("t"):
+        # Free-threaded Python wheels use cpXXX-cpXXXt format (e.g., cp314-cp314t)
+        base_version = py_version.replace(".", "").replace("t", "")
+        return f"aeg-*-cp{base_version}-cp{base_version}t-*.whl"
+    else:
+        # Regular CPython wheels use cpXXX-cpXXX format
+        # Strip +gil suffix used to force non-free-threaded build
+        base_version = py_version.replace(".", "").replace("+gil", "")
+        return f"aeg-*-cp{base_version}-cp{base_version}-*.whl"
+
+
+def build_abi3_wheel(dist_dir: Path, py_version: str) -> Path | None:
+    """Build the ABI3 wheel using the specified Python version."""
+    cmd = ["uv", "build", "--python", py_version, "--wheel", "--quiet"]
+
+    if not run_command(cmd, env=get_build_env()):
+        return None
+
+    # Find the ABI3 wheel (always tagged cp310-abi3 regardless of build Python version)
+    wheel_pattern = get_wheel_pattern(py_version, abi3=True)
+    wheels = list(dist_dir.glob(wheel_pattern))
+    if not wheels:
+        print(f"✗ Could not find ABI3 wheel matching {wheel_pattern}", file=sys.stderr)
+        return None
+
+    wheel = wheels[0]
+
+    # Repair wheel with auditwheel for manylinux compatibility (Linux only)
+    if platform.system() == "Linux":
+        wheel = repair_wheel_linux(dist_dir, wheel, py_version, abi3=True)
+        if not wheel:
+            return None
+
+    return wheel
+
+
+def build_wheel_for_version(dist_dir: Path, py_version: str) -> Path | None:
+    """Build a wheel for a specific Python version (non-ABI3)."""
+    cmd = ["uv", "build", "--python", py_version, "--wheel", "--quiet"]
+
+    if not run_command(cmd, env=get_build_env()):
+        return None
+
+    # Find the wheel for this version
+    wheel_pattern = get_wheel_pattern(py_version, abi3=False)
+    wheels = list(dist_dir.glob(wheel_pattern))
+    if not wheels:
+        print(f"✗ Could not find wheel for Python {py_version}", file=sys.stderr)
+        return None
+
+    wheel = wheels[0]
+
+    # Repair wheel with auditwheel for manylinux compatibility (Linux only)
+    if platform.system() == "Linux":
+        wheel = repair_wheel_linux(dist_dir, wheel, py_version, abi3=False)
+        if not wheel:
+            return None
+
+    return wheel
+
+
+def repair_wheel_linux(
+    dist_dir: Path, wheel: Path, py_version: str, abi3: bool
+) -> Path | None:
+    """Repair a wheel with auditwheel for manylinux compatibility (Linux only)."""
+    repair_cmd = [
+        "uv",
+        "run",
+        "auditwheel",
+        "repair",
+        str(wheel),
+        "-w",
+        str(dist_dir),
+    ]
+    if not run_command(repair_cmd):
+        return None
+
+    # Find the repaired wheel (it will have a different name)
+    wheel_pattern = get_wheel_pattern(py_version, abi3=abi3)
+    all_wheels = list(dist_dir.glob(wheel_pattern))
+    repaired_wheels = [w for w in all_wheels if "linux_x86_64" not in str(w)]
+    if not repaired_wheels:
+        print(
+            f"✗ Could not find repaired (manylinux) wheel for Python {py_version}",
+            file=sys.stderr,
+        )
+        return None
+
+    repaired_wheel = repaired_wheels[0]
+
+    # Remove the unrepaired linux_x86_64 wheels
+    for w in all_wheels:
+        if "linux_x86_64" in str(w):
+            w.unlink()
+
+    return repaired_wheel
+
+
+def test_wheel(wheel: Path, py_version: str) -> bool:
+    """Test a wheel with pytest."""
+    # --isolated: avoid .venv conflicts
+    # --no-project: don't build from source in current directory, use the wheel
+    # --refresh-package: force uv to not use cached old versions
+    test_cmd = [
+        "uv",
+        "run",
+        "--isolated",
+        "--no-project",
+        "--refresh-package",
+        "aeg",
+        "--python",
+        py_version,
+        "--with",
+        str(wheel),
+        "--with",
+        "pytest",
+        "pytest",
+        "tests/",
+    ]
+    return run_command(test_cmd)
+
+
+def run_benchmark(wheel: Path, py_version: str) -> bool:
+    """Run benchmark for a wheel."""
+    # --isolated: avoid .venv conflicts
+    # --no-project: don't build from source in current directory, use the wheel
+    # --refresh-package: force uv to not use cached old versions
+    bench_cmd = [
+        "uv",
+        "run",
+        "--isolated",
+        "--no-project",
+        "--refresh-package",
+        "aeg",
+        "--python",
+        py_version,
+        "--with",
+        str(wheel),
+        "-m",
+        "aeg.benchmark",
+    ]
+    return run_command(bench_cmd)
+    return True
+
+
 def main():
     """Build wheels for all supported Python versions."""
     repo_root = Path(__file__).parent.parent
@@ -146,14 +324,15 @@ def main():
         return 1
 
     # Run ruff to check and fix any issues
-    if not run_command(
-        ["uv", "run", "ruff", "check", "--fix", "."], "Running ruff check --fix"
-    ):
+    print(f"\n{'=' * 70}")
+    print("Linting and formatting")
+    print(f"{'=' * 70}")
+    if not run_command(["uv", "run", "ruff", "check", "--fix", "."]):
         print("✗ Ruff check failed", file=sys.stderr)
         return 1
 
     # Run ruff format
-    if not run_command(["uv", "run", "ruff", "format", "."], "Running ruff format"):
+    if not run_command(["uv", "run", "ruff", "format", "."]):
         print("✗ Ruff format failed", file=sys.stderr)
         return 1
 
@@ -172,7 +351,11 @@ def main():
         f"Packaging aeg-{version}"
         + (" for release" if is_release else " (not release)")
     )
-    print(f"Building wheels for Python versions: {', '.join(PYTHON_VERSIONS)}")
+    print(f"Building: 1 ABI3 wheel (for Python {', '.join(ABI3_COVERED_VERSIONS)})")
+    print(
+        f"        + {len(NON_ABI3_VERSIONS)} non-ABI3 wheels ({', '.join(NON_ABI3_VERSIONS)})"
+    )
+    print(f"Testing/benchmarking: {len(ALL_PYTHON_VERSIONS)} Python versions")
     print(f"Output directory: {dist_dir}", end=" ")
 
     # Clean dist directory
@@ -181,149 +364,88 @@ def main():
         shutil.rmtree(dist_dir)
     else:
         print("(created)")
+
+    # Clean build directory to remove stale CFFI-generated C code and .so files
+    build_dir = repo_root / "build"
+    if build_dir.exists():
+        print(f"Cleaning build directory: {build_dir}")
+        shutil.rmtree(build_dir)
+
+    # Build distributions
+    print(f"\n{'=' * 70}")
+    print("Building distributions")
     print(f"{'=' * 70}")
 
     # Build source distribution first
-    if not run_command(
-        ["uv", "build", "--sdist", "--quiet"], "Building source distribution"
-    ):
+    if not run_command(["uv", "build", "--sdist", "--quiet"], env=get_build_env()):
         print("✗ Source distribution build failed", file=sys.stderr)
         return 1
 
     failed_builds = []
+    failed_tests = []
     successful_wheels = []
+    wheel_for_version = {}  # Map Python version to wheel path
 
-    for py_version in PYTHON_VERSIONS:
-        # Build wheel
-        description = f"Building wheel for Python {py_version}"
-        cmd = ["uv", "build", "--python", py_version, "--wheel", "--quiet"]
+    # Build ABI3 wheel (once, works for all GIL-enabled versions)
+    abi3_wheel = build_abi3_wheel(dist_dir, ABI3_BUILD_VERSION)
+    if abi3_wheel:
+        successful_wheels.append(abi3_wheel)
+        # This wheel works for all ABI3-covered versions
+        for py_version in ABI3_COVERED_VERSIONS:
+            wheel_for_version[py_version] = abi3_wheel
+    else:
+        failed_builds.append(f"abi3 (built with {ABI3_BUILD_VERSION})")
 
-        if not run_command(cmd, description):
-            failed_builds.append(py_version)
-            continue
-
-        # Find the wheel for this version
-        if py_version.startswith("pypy"):
-            # PyPy wheels use pp3XX format
-            wheel_pattern = (
-                f"aeg-*-pp{py_version.replace('pypy', '').replace('.', '')}-*.whl"
-            )
-        elif py_version.endswith("t"):
-            # Free-threaded Python wheels use cpXXX-cpXXXt format (e.g., cp314-cp314t)
-            base_version = py_version.replace(".", "").replace("t", "")
-            wheel_pattern = f"aeg-*-cp{base_version}-cp{base_version}t-*.whl"
+    # Build non-ABI3 wheels (free-threaded and PyPy)
+    for py_version in NON_ABI3_VERSIONS:
+        wheel = build_wheel_for_version(dist_dir, py_version)
+        if wheel:
+            successful_wheels.append(wheel)
+            wheel_for_version[py_version] = wheel
         else:
-            # Regular CPython wheels use cpXXX-cpXXX format
-            base_version = py_version.replace(".", "")
-            wheel_pattern = f"aeg-*-cp{base_version}-cp{base_version}-*.whl"
-        wheels = list(dist_dir.glob(wheel_pattern))
-        if not wheels:
-            print(f"✗ Could not find wheel for Python {py_version}", file=sys.stderr)
             failed_builds.append(py_version)
+
+    # Test and benchmark each Python version with its appropriate wheel
+    print(f"\n{'=' * 70}")
+    print("Testing and benchmarking")
+    print(f"{'=' * 70}")
+
+    for py_version in ALL_PYTHON_VERSIONS:
+        wheel = wheel_for_version.get(py_version)
+        if not wheel:
+            # No wheel available for this version (build failed)
             continue
 
-        wheel = wheels[0]
-
-        # Repair wheel with auditwheel for manylinux compatibility (Linux only)
-        if platform.system() == "Linux":
-            repair_cmd = [
-                "uv",
-                "run",
-                "auditwheel",
-                "repair",
-                str(wheel),
-                "-w",
-                str(dist_dir),
-            ]
-            if not run_command(
-                repair_cmd, f"Repairing wheel for Python {py_version} with auditwheel"
-            ):
-                print(
-                    f"✗ Auditwheel repair failed for Python {py_version}",
-                    file=sys.stderr,
-                )
-                failed_builds.append(py_version)
-                continue
-
-            # Find the repaired wheel (it will have a different name)
-            # Use same pattern logic as above for free-threaded vs regular builds
-            if py_version.startswith("pypy"):
-                repair_pattern = (
-                    f"aeg-*-pp{py_version.replace('pypy', '').replace('.', '')}-*.whl"
-                )
-            elif py_version.endswith("t"):
-                base_version = py_version.replace(".", "").replace("t", "")
-                repair_pattern = f"aeg-*-cp{base_version}-cp{base_version}t-*.whl"
-            else:
-                base_version = py_version.replace(".", "")
-                repair_pattern = f"aeg-*-cp{base_version}-cp{base_version}-*.whl"
-            all_wheels = list(dist_dir.glob(repair_pattern))
-            repaired_wheels = [w for w in all_wheels if "linux_x86_64" not in str(w)]
-            if not repaired_wheels:
-                print(
-                    f"✗ Could not find repaired (manylinux) wheel for Python {py_version}",
-                    file=sys.stderr,
-                )
-                failed_builds.append(py_version)
-                continue
-
-            wheel = repaired_wheels[0]  # Use the repaired wheel for testing
-
-            # Remove the unrepaired linux_x86_64 wheels
-            for w in all_wheels:
-                if "linux_x86_64" in str(w):
-                    w.unlink()
-
-        # Test the wheel with pytest (use --isolated to avoid .venv conflicts)
-        test_cmd = [
-            "uv",
-            "run",
-            "--isolated",
-            "--python",
-            py_version,
-            "--with",
-            str(wheel),
-            "--with",
-            "pytest",
-            "pytest",
-        ]
-        if not run_command(
-            test_cmd, f"Testing wheel for Python {py_version} with pytest"
-        ):
-            print(f"✗ Tests failed for Python {py_version}", file=sys.stderr)
-            failed_builds.append(py_version)
+        # Test the wheel with pytest
+        if not test_wheel(wheel, py_version):
+            failed_tests.append(py_version)
             continue
 
-        # Run benchmark (use --isolated to avoid .venv conflicts)
-        bench_cmd = [
-            "uv",
-            "run",
-            "--isolated",
-            "--python",
-            py_version,
-            "--with",
-            str(wheel),
-            "-m",
-            "aeg.benchmark",
-        ]
-        if not run_command(bench_cmd, f"Running benchmark for Python {py_version}"):
-            print(f"✗ Benchmark failed for Python {py_version}", file=sys.stderr)
-            failed_builds.append(py_version)
+        # Run benchmark
+        if not run_benchmark(wheel, py_version):
+            failed_tests.append(py_version)
             continue
-
-        successful_wheels.append(wheel)
 
     # Summary
     print(f"\n{'=' * 70}")
     print("BUILD SUMMARY")
     print(f"{'=' * 70}")
     print(
-        f"Successful builds: sdist and {len(successful_wheels)}/{len(PYTHON_VERSIONS)} wheels"
+        f"Successful builds: sdist and {len(successful_wheels)} wheels "
+        f"(1 abi3 + {len(NON_ABI3_VERSIONS)} non-abi3)"
+    )
+    print(
+        f"Tests/benchmarks passed: {len(ALL_PYTHON_VERSIONS) - len(failed_tests) - len(failed_builds)}/{len(ALL_PYTHON_VERSIONS)} Python versions"
     )
 
     if failed_builds:
         print(f"\nFailed builds: {len(failed_builds)}")
         for failed_version in failed_builds:
+            print(f"  ✗ {failed_version}")
+
+    if failed_tests:
+        print(f"\nFailed tests/benchmarks: {len(failed_tests)}")
+        for failed_version in failed_tests:
             print(f"  ✗ Python {failed_version}")
 
     if not successful_wheels:
@@ -356,4 +478,7 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        sys.exit(1)

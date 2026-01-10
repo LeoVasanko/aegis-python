@@ -708,24 +708,17 @@ class Encryptor:
             raise TypeError(
                 "into length must be >= expected output size for this update"
             )
-        written = ffi.new("size_t *")
         rc = _lib.aegis256_state_encrypt_update(
             self._state.ptr,
             ffi.from_buffer(out_mv),
-            out_mv.nbytes,
-            written,
             _ptr(message),
             message.nbytes,
         )
         if rc != 0:
             err_num = ffi.errno
             err_name = errno.errorcode.get(err_num, f"errno_{err_num}")
-            raise RuntimeError(
-                f"state encrypt update failed: {err_name} written {written[0]}"
-            )
-        w = int(written[0])
-        assert w == expected_out
-        return out if into is None else memoryview(out)[:w]  # type: ignore
+            raise RuntimeError(f"state encrypt update failed: {err_name}")
+        return out if into is None else memoryview(out)[:expected_out]  # type: ignore
 
     def final(self, into: Buffer | None = None) -> bytearray | memoryview:
         """Finalize encryption and return the authentication tag.
@@ -746,24 +739,17 @@ class Encryptor:
         if into is not None:
             into = memoryview(into)
         out = into if into is not None else bytearray(maclen)
-        written = ffi.new("size_t *")
         rc = _lib.aegis256_state_encrypt_final(
             self._state.ptr,
             ffi.from_buffer(out),
-            memoryview(out).nbytes,
-            written,
             maclen,
         )
         if rc != 0:
             err_num = ffi.errno
             err_name = errno.errorcode.get(err_num, f"errno_{err_num}")
             raise RuntimeError(f"state encrypt final failed: {err_name}")
-        w = int(written[0])
-        if into is None:
-            # Only the tag bytes are returned when we allocate the buffer
-            assert w == maclen
         self._state = None
-        return out if into is None else memoryview(out)[:w]  # type: ignore
+        return out if into is None else memoryview(out)[:maclen]  # type: ignore
 
 
 class Decryptor:
@@ -837,12 +823,9 @@ class Decryptor:
         out_mv = memoryview(out)
         if out_mv.nbytes < expected_out:
             raise TypeError("into length must be >= required capacity for this update")
-        written = ffi.new("size_t *")
-        rc = _lib.aegis256_state_decrypt_detached_update(
+        rc = _lib.aegis256_state_decrypt_update(
             self._state.ptr,
             ffi.from_buffer(out_mv),
-            out_mv.nbytes,
-            written,
             _ptr(ct),
             ct.nbytes,
         )
@@ -850,11 +833,7 @@ class Decryptor:
             err_num = ffi.errno
             err_name = errno.errorcode.get(err_num, f"errno_{err_num}")
             raise RuntimeError(f"state decrypt update failed: {err_name}")
-        w = int(written[0])
-        assert w == expected_out, (
-            f"got {w}, expected {expected_out}, ct.nbytes={ct.nbytes}"
-        )
-        return out if into is None else memoryview(out)[:w]  # type: ignore
+        return out if into is None else memoryview(out)[:expected_out]  # type: ignore
 
     def final(self, mac: Buffer) -> None:
         """Finalize decryption by verifying the MAC tag.
@@ -873,9 +852,7 @@ class Decryptor:
         mac = memoryview(mac)
         if mac.nbytes != maclen:
             raise TypeError(f"mac length must be {maclen}")
-        rc = _lib.aegis256_state_decrypt_detached_final(
-            self._state.ptr, ffi.NULL, 0, ffi.NULL, _ptr(mac), maclen
-        )
+        rc = _lib.aegis256_state_decrypt_final(self._state.ptr, _ptr(mac), maclen)
         if rc != 0:
             raise ValueError("authentication failed")
         self._state = None
