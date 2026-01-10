@@ -37,6 +37,6 @@ package-dir = {"" = "src"}
 packages = ["aeg"]
 
 [tool.setuptools.package-data]
-aeg = ["*.h", "*.so", "*.pyd"]
+aeg = ["*.h"]
 
 [tool.setuptools_scm]

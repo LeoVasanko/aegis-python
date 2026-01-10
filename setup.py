@@ -1,35 +1,24 @@
 """Setup script for aeg - builds CFFI extension with libaegis C library."""
 
 import sys
+import sysconfig
 from pathlib import Path
 
 from cffi import FFI
 from setuptools import setup
 
-# Locate the static library (built by build_backend.py before this runs)
-lib_name = "aegis.lib" if sys.platform == "win32" else "libaegis.a"
-libaegis_static = Path("libaegis/zig-out/lib") / lib_name
-if not libaegis_static.exists():
-    raise RuntimeError(f"libaegis static library not found at {libaegis_static}")
-libaegis_static = str(libaegis_static.resolve())
+libaegis_static = Path("libaegis/zig-out/lib") / (
+    "aegis.lib" if sys.platform == "win32" else "libaegis.a"
+)
 
-# Include directory for headers
-libaegis_include = Path("libaegis/src/include")
-if not libaegis_include.exists():
-    raise RuntimeError(f"libaegis include directory not found at {libaegis_include}")
-include_dirs = [str(libaegis_include)]
-
-# Read the CDEF header
-cdef_path = Path(__file__).parent / "src" / "aeg" / "aegis_cdef.h"
-cdef_content = cdef_path.read_text(encoding="utf-8")
-
-# Create CFFI builder
 ffibuilder = FFI()
-ffibuilder.cdef(cdef_content)
+ffibuilder.cdef((Path(__file__).parent / "src/aeg/aegis_cdef.h").read_text())
 
-# Set the source
+# Free-threaded Python does not support Limited API (abi3)
+is_free_threaded = sysconfig.get_config_var("Py_GIL_DISABLED")
+
 ffibuilder.set_source(
-    "aeg._aegis",  # module name
+    "aeg._aegis",
     """
     #include "aegis.h"
     #include "aegis128l.h"
@@ -39,11 +28,15 @@ ffibuilder.set_source(
     #include "aegis256x2.h"
     #include "aegis256x4.h"
     """,
-    include_dirs=include_dirs,
-    extra_objects=[libaegis_static],
+    include_dirs=["libaegis/src/include"],
+    extra_objects=[str(libaegis_static.resolve())],
+    py_limited_api=not is_free_threaded,
 )
 
 if __name__ == "__main__":
     setup(
         cffi_modules=["setup.py:ffibuilder"],
+        options=(
+            {"bdist_wheel": {"py_limited_api": "cp310"}} if not is_free_threaded else {}
+        ),
     )

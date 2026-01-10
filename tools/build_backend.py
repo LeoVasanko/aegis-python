@@ -1,100 +1,68 @@
 """Custom build backend that builds libaegis with Zig before building the Python package."""
 
+import os
+import platform
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-from setuptools import build_meta as _orig
+from setuptools import build_meta
+
+__all__ = [
+    "build_sdist",
+    "build_wheel",
+    "build_editable",
+    "get_requires_for_build_sdist",
+    "get_requires_for_build_wheel",
+    "prepare_metadata_for_build_wheel",
+]
+
+_MACOS_TARGET = "11.0"
+_prepared = False
 
 
-def _check_zig_available():
-    """Check if Zig is installed and available."""
+def _prepare():
+    """Prepare the build environment and build libaegis."""
+    global _prepared
+    if _prepared:
+        return
+    _prepared = True
+
+    # Set macOS deployment target
+    if sys.platform == "darwin" and "MACOSX_DEPLOYMENT_TARGET" not in os.environ:
+        os.environ["MACOSX_DEPLOYMENT_TARGET"] = _MACOS_TARGET
+
+    # Check Zig is available
     if shutil.which("zig") is None:
         raise RuntimeError(
-            "\n" + "=" * 70 + "\n"
-            "ERROR: Zig compiler not found!\n"
-            "\n"
-            "Building aeg requires the Zig compiler to build the libaegis\n"
-            "static library. Please install Zig before building this package.\n"
-            "\n"
-            "Installation instructions:\n"
-            "  - Visit: https://ziglang.org/download/\n"
-            "  - Or use a package manager:\n"
-            "    * macOS:   brew install zig\n"
-            "    * Linux:   See https://github.com/ziglang/zig/wiki/Install-Zig-from-a-Package-Manager\n"
-            "    * Windows: choco install zig  or  scoop install zig\n"
-            "\n"
-            "After installing Zig, please try building again.\n" + "=" * 70 + "\n"
+            "Zig compiler not found. Install from https://ziglang.org/download/"
         )
 
-
-def _build_libaegis():
-    """Build libaegis static library with Zig."""
-    # Check Zig availability first
-    _check_zig_available()
-
+    # Build libaegis
     libaegis_dir = Path(__file__).parent.parent / "libaegis"
-    if not libaegis_dir.exists():
-        raise FileNotFoundError(
-            f"libaegis directory not found at {libaegis_dir}. "
-            "Cannot build static library."
-        )
-
-    print("Building libaegis static library with Zig...")
-    try:
-        subprocess.run(
-            ["zig", "build", "-Drelease"],
-            cwd=libaegis_dir,
-            check=True,
-            capture_output=False,
-        )
-        print("Successfully built libaegis static library")
-    except subprocess.CalledProcessError as e:
-        print(
-            f"\nError: Zig build failed with exit code {e.returncode}\n"
-            f"Command: {' '.join(e.cmd)}\n",
-            file=sys.stderr,
-        )
-        raise
+    cmd = ["zig", "build", "-Drelease"]
+    if sys.platform == "darwin":
+        arch = {"arm64": "aarch64", "x86_64": "x86_64"}.get(platform.machine())
+        if arch:
+            cmd.append(f"-Dtarget={arch}-macos.{_MACOS_TARGET}")
+    subprocess.run(cmd, cwd=libaegis_dir, check=True)
 
 
-# Expose all the standard build backend hooks
-def get_requires_for_build_wheel(config_settings=None):
-    """Return build requirements and ensure libaegis is built first."""
-    _build_libaegis()
-    return _orig.get_requires_for_build_wheel(config_settings)
+build_sdist = build_meta.build_sdist
+get_requires_for_build_sdist = build_meta.get_requires_for_build_sdist
+get_requires_for_build_wheel = build_meta.get_requires_for_build_wheel
+prepare_metadata_for_build_wheel = build_meta.prepare_metadata_for_build_wheel
 
 
-def get_requires_for_build_sdist(config_settings=None):
-    """Return build requirements for sdist and ensure libaegis is built first."""
-    _build_libaegis()
-    return _orig.get_requires_for_build_sdist(config_settings)
-
-
-_orig_prepare_metadata_for_build_wheel = _orig.prepare_metadata_for_build_wheel
-_orig_build_sdist = _orig.build_sdist
-
-
-def prepare_metadata_for_build_wheel(metadata_directory, config_settings=None):
-    """Prepare metadata and ensure libaegis is built (some frontends call this early)."""
-    _build_libaegis()
-    return _orig_prepare_metadata_for_build_wheel(metadata_directory, config_settings)
-
-
-def build_sdist(sdist_directory, config_settings=None):
-    """Build sdist, building libaegis first so the sdist can include built artifacts if needed."""
-    _build_libaegis()
-    return _orig_build_sdist(sdist_directory, config_settings)
-
-
+# Wheel build hooks - need libaegis built first
 def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
-    """Build wheel with libaegis built first."""
-    _build_libaegis()
-    return _orig.build_wheel(wheel_directory, config_settings, metadata_directory)
+    _prepare()
+    return build_meta.build_wheel(wheel_directory, config_settings, metadata_directory)
 
 
 def build_editable(wheel_directory, config_settings=None, metadata_directory=None):
-    """Build editable install with libaegis built first."""
-    _build_libaegis()
-    return _orig.build_editable(wheel_directory, config_settings, metadata_directory)
+    _prepare()
+    return build_meta.build_editable(
+        wheel_directory, config_settings, metadata_directory
+    )

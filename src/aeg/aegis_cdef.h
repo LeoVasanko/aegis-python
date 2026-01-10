@@ -55,35 +55,10 @@ void aegis128l_state_init(aegis128l_state *st_,
                           size_t adlen,
                           const uint8_t *npub,
                           const uint8_t *k);
-int aegis128l_state_encrypt_update(aegis128l_state *st_,
-                                   uint8_t *c,
-                                   size_t clen_max,
-                                   size_t *written,
-                                   const uint8_t *m,
-                                   size_t mlen);
-int aegis128l_state_encrypt_detached_final(aegis128l_state *st_,
-                                           uint8_t *c,
-                                           size_t clen_max,
-                                           size_t *written,
-                                           uint8_t *mac,
-                                           size_t maclen);
-int aegis128l_state_encrypt_final(aegis128l_state *st_,
-                                  uint8_t *c,
-                                  size_t clen_max,
-                                  size_t *written,
-                                  size_t maclen);
-int aegis128l_state_decrypt_detached_update(aegis128l_state *st_,
-                                            uint8_t *m,
-                                            size_t mlen_max,
-                                            size_t *written,
-                                            const uint8_t *c,
-                                            size_t clen) ;
-int aegis128l_state_decrypt_detached_final(aegis128l_state *st_,
-                                           uint8_t *m,
-                                           size_t mlen_max,
-                                           size_t *written,
-                                           const uint8_t *mac,
-                                           size_t maclen) ;
+int aegis128l_state_encrypt_update(aegis128l_state *st_, uint8_t *c, const uint8_t *m, size_t mlen);
+int aegis128l_state_encrypt_final(aegis128l_state *st_, uint8_t *mac, size_t maclen);
+int aegis128l_state_decrypt_update(aegis128l_state *st_, uint8_t *m, const uint8_t *c, size_t clen) ;
+int aegis128l_state_decrypt_final(aegis128l_state *st_, const uint8_t *mac, size_t maclen) ;
 void aegis128l_stream(uint8_t *out, size_t len, const uint8_t *npub, const uint8_t *k);
 void aegis128l_encrypt_unauthenticated(uint8_t *c,
                                        const uint8_t *m,
@@ -151,33 +126,14 @@ void aegis128x2_state_init(aegis128x2_state *st_,
                            const uint8_t *k);
 int aegis128x2_state_encrypt_update(aegis128x2_state *st_,
                                     uint8_t *c,
-                                    size_t clen_max,
-                                    size_t *written,
                                     const uint8_t *m,
                                     size_t mlen);
-int aegis128x2_state_encrypt_detached_final(aegis128x2_state *st_,
-                                            uint8_t *c,
-                                            size_t clen_max,
-                                            size_t *written,
-                                            uint8_t *mac,
-                                            size_t maclen);
-int aegis128x2_state_encrypt_final(aegis128x2_state *st_,
-                                   uint8_t *c,
-                                   size_t clen_max,
-                                   size_t *written,
-                                   size_t maclen);
-int aegis128x2_state_decrypt_detached_update(aegis128x2_state *st_,
-                                             uint8_t *m,
-                                             size_t mlen_max,
-                                             size_t *written,
-                                             const uint8_t *c,
-                                             size_t clen) ;
-int aegis128x2_state_decrypt_detached_final(aegis128x2_state *st_,
-                                            uint8_t *m,
-                                            size_t mlen_max,
-                                            size_t *written,
-                                            const uint8_t *mac,
-                                            size_t maclen) ;
+int aegis128x2_state_encrypt_final(aegis128x2_state *st_, uint8_t *mac, size_t maclen);
+int aegis128x2_state_decrypt_update(aegis128x2_state *st_,
+                                    uint8_t *m,
+                                    const uint8_t *c,
+                                    size_t clen) ;
+int aegis128x2_state_decrypt_final(aegis128x2_state *st_, const uint8_t *mac, size_t maclen) ;
 void aegis128x2_stream(uint8_t *out, size_t len, const uint8_t *npub, const uint8_t *k);
 void aegis128x2_encrypt_unauthenticated(uint8_t *c,
                                         const uint8_t *m,
@@ -245,33 +201,14 @@ void aegis128x4_state_init(aegis128x4_state *st_,
                            const uint8_t *k);
 int aegis128x4_state_encrypt_update(aegis128x4_state *st_,
                                     uint8_t *c,
-                                    size_t clen_max,
-                                    size_t *written,
                                     const uint8_t *m,
                                     size_t mlen);
-int aegis128x4_state_encrypt_detached_final(aegis128x4_state *st_,
-                                            uint8_t *c,
-                                            size_t clen_max,
-                                            size_t *written,
-                                            uint8_t *mac,
-                                            size_t maclen);
-int aegis128x4_state_encrypt_final(aegis128x4_state *st_,
-                                   uint8_t *c,
-                                   size_t clen_max,
-                                   size_t *written,
-                                   size_t maclen);
-int aegis128x4_state_decrypt_detached_update(aegis128x4_state *st_,
-                                             uint8_t *m,
-                                             size_t mlen_max,
-                                             size_t *written,
-                                             const uint8_t *c,
-                                             size_t clen) ;
-int aegis128x4_state_decrypt_detached_final(aegis128x4_state *st_,
-                                            uint8_t *m,
-                                            size_t mlen_max,
-                                            size_t *written,
-                                            const uint8_t *mac,
-                                            size_t maclen) ;
+int aegis128x4_state_encrypt_final(aegis128x4_state *st_, uint8_t *mac, size_t maclen);
+int aegis128x4_state_decrypt_update(aegis128x4_state *st_,
+                                    uint8_t *m,
+                                    const uint8_t *c,
+                                    size_t clen) ;
+int aegis128x4_state_decrypt_final(aegis128x4_state *st_, const uint8_t *mac, size_t maclen) ;
 void aegis128x4_stream(uint8_t *out, size_t len, const uint8_t *npub, const uint8_t *k);
 void aegis128x4_encrypt_unauthenticated(uint8_t *c,
                                         const uint8_t *m,
@@ -337,35 +274,10 @@ void aegis256_state_init(aegis256_state *st_,
                          size_t adlen,
                          const uint8_t *npub,
                          const uint8_t *k);
-int aegis256_state_encrypt_update(aegis256_state *st_,
-                                  uint8_t *c,
-                                  size_t clen_max,
-                                  size_t *written,
-                                  const uint8_t *m,
-                                  size_t mlen);
-int aegis256_state_encrypt_detached_final(aegis256_state *st_,
-                                          uint8_t *c,
-                                          size_t clen_max,
-                                          size_t *written,
-                                          uint8_t *mac,
-                                          size_t maclen);
-int aegis256_state_encrypt_final(aegis256_state *st_,
-                                 uint8_t *c,
-                                 size_t clen_max,
-                                 size_t *written,
-                                 size_t maclen);
-int aegis256_state_decrypt_detached_update(aegis256_state *st_,
-                                           uint8_t *m,
-                                           size_t mlen_max,
-                                           size_t *written,
-                                           const uint8_t *c,
-                                           size_t clen) ;
-int aegis256_state_decrypt_detached_final(aegis256_state *st_,
-                                          uint8_t *m,
-                                          size_t mlen_max,
-                                          size_t *written,
-                                          const uint8_t *mac,
-                                          size_t maclen) ;
+int aegis256_state_encrypt_update(aegis256_state *st_, uint8_t *c, const uint8_t *m, size_t mlen);
+int aegis256_state_encrypt_final(aegis256_state *st_, uint8_t *mac, size_t maclen);
+int aegis256_state_decrypt_update(aegis256_state *st_, uint8_t *m, const uint8_t *c, size_t clen) ;
+int aegis256_state_decrypt_final(aegis256_state *st_, const uint8_t *mac, size_t maclen) ;
 void aegis256_stream(uint8_t *out, size_t len, const uint8_t *npub, const uint8_t *k);
 void aegis256_encrypt_unauthenticated(uint8_t *c,
                                       const uint8_t *m,
@@ -433,33 +345,14 @@ void aegis256x2_state_init(aegis256x2_state *st_,
                            const uint8_t *k);
 int aegis256x2_state_encrypt_update(aegis256x2_state *st_,
                                     uint8_t *c,
-                                    size_t clen_max,
-                                    size_t *written,
                                     const uint8_t *m,
                                     size_t mlen);
-int aegis256x2_state_encrypt_detached_final(aegis256x2_state *st_,
-                                            uint8_t *c,
-                                            size_t clen_max,
-                                            size_t *written,
-                                            uint8_t *mac,
-                                            size_t maclen);
-int aegis256x2_state_encrypt_final(aegis256x2_state *st_,
-                                   uint8_t *c,
-                                   size_t clen_max,
-                                   size_t *written,
-                                   size_t maclen);
-int aegis256x2_state_decrypt_detached_update(aegis256x2_state *st_,
-                                             uint8_t *m,
-                                             size_t mlen_max,
-                                             size_t *written,
-                                             const uint8_t *c,
-                                             size_t clen) ;
-int aegis256x2_state_decrypt_detached_final(aegis256x2_state *st_,
-                                            uint8_t *m,
-                                            size_t mlen_max,
-                                            size_t *written,
-                                            const uint8_t *mac,
-                                            size_t maclen) ;
+int aegis256x2_state_encrypt_final(aegis256x2_state *st_, uint8_t *mac, size_t maclen);
+int aegis256x2_state_decrypt_update(aegis256x2_state *st_,
+                                    uint8_t *m,
+                                    const uint8_t *c,
+                                    size_t clen) ;
+int aegis256x2_state_decrypt_final(aegis256x2_state *st_, const uint8_t *mac, size_t maclen) ;
 void aegis256x2_stream(uint8_t *out, size_t len, const uint8_t *npub, const uint8_t *k);
 void aegis256x2_encrypt_unauthenticated(uint8_t *c,
                                         const uint8_t *m,
@@ -527,33 +420,14 @@ void aegis256x4_state_init(aegis256x4_state *st_,
                            const uint8_t *k);
 int aegis256x4_state_encrypt_update(aegis256x4_state *st_,
                                     uint8_t *c,
-                                    size_t clen_max,
-                                    size_t *written,
                                     const uint8_t *m,
                                     size_t mlen);
-int aegis256x4_state_encrypt_detached_final(aegis256x4_state *st_,
-                                            uint8_t *c,
-                                            size_t clen_max,
-                                            size_t *written,
-                                            uint8_t *mac,
-                                            size_t maclen);
-int aegis256x4_state_encrypt_final(aegis256x4_state *st_,
-                                   uint8_t *c,
-                                   size_t clen_max,
-                                   size_t *written,
-                                   size_t maclen);
-int aegis256x4_state_decrypt_detached_update(aegis256x4_state *st_,
-                                             uint8_t *m,
-                                             size_t mlen_max,
-                                             size_t *written,
-                                             const uint8_t *c,
-                                             size_t clen) ;
-int aegis256x4_state_decrypt_detached_final(aegis256x4_state *st_,
-                                            uint8_t *m,
-                                            size_t mlen_max,
-                                            size_t *written,
-                                            const uint8_t *mac,
-                                            size_t maclen) ;
+int aegis256x4_state_encrypt_final(aegis256x4_state *st_, uint8_t *mac, size_t maclen);
+int aegis256x4_state_decrypt_update(aegis256x4_state *st_,
+                                    uint8_t *m,
+                                    const uint8_t *c,
+                                    size_t clen) ;
+int aegis256x4_state_decrypt_final(aegis256x4_state *st_, const uint8_t *mac, size_t maclen) ;
 void aegis256x4_stream(uint8_t *out, size_t len, const uint8_t *npub, const uint8_t *k);
 void aegis256x4_encrypt_unauthenticated(uint8_t *c,
                                         const uint8_t *m,
