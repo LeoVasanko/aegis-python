@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run
 """
 Python benchmark matching src/test/benchmark.zig for all supported Aegis algorithms.
 
@@ -7,7 +7,18 @@ It performs two benchmarks with the same parameters as the Zig version:
 - AEGIS MAC (clone state pattern)
 
 Output format and throughput units mirror the Zig benchmark (Mb/s).
+
+Runnable directly (./src/aeg/benchmark.py) or as python -m aeg.benchmark.
 """
+
+# Direct execution puts this package's directory on sys.path, where our
+# random.py would shadow the stdlib random module — drop it before imports.
+import sys
+from pathlib import Path
+
+_pkg_dir = str(Path(__file__).resolve().parent)
+if sys.path and Path(sys.path[0]).resolve() == Path(_pkg_dir):
+    sys.path.pop(0)
 
 import secrets
 import time
