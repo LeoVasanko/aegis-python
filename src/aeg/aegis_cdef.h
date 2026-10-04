@@ -1,8 +1,5 @@
 /* This file is generated with tools/generate.py. Do not edit. */
 
-typedef unsigned char uint8_t;
-typedef unsigned long size_t;
-
 /* aegis.h */
 int aegis_init(void);
 int aegis_verify_16(const uint8_t *x, const uint8_t *y);

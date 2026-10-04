@@ -74,11 +74,11 @@ def format_declaration(decl: str, max_width: int = 100) -> str:
 
 
 def generate_cdef(include_dir: pathlib.Path) -> str:
+    # cffi pre-defines uint8_t, size_t, etc. with the correct platform sizes.
+    # Do not typedef them here: "unsigned long" matches size_t on LP64 but is
+    # 4 bytes vs 8 on Win64 (LLP64), breaking struct layout verification.
     lines = [
         "/* This file is generated with tools/generate.py. Do not edit. */",
-        "",
-        "typedef unsigned char uint8_t;",
-        "typedef unsigned long size_t;",
         "",
     ]
 

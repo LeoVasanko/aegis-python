@@ -9,6 +9,11 @@ from setuptools import setup
 
 ROOT = Path(__file__).parent.resolve()
 
+if sys.maxsize <= 2**32:
+    raise RuntimeError(
+        "aeg does not support 32-bit platforms; build with a 64-bit Python"
+    )
+
 libaegis_static = ROOT / "libaegis/zig-out/lib" / (
     "aegis.lib" if sys.platform == "win32" else "libaegis.a"
 )
