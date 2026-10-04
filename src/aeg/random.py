@@ -31,8 +31,9 @@ class Random:
     Each call produces keystream under the current key/nonce and increments
     the nonce afterwards, so no output block is ever produced twice.
 
-    The primary way to create one is the cipher module's own random()
-    helper, e.g. ``aeg.cipher("AEGIS-128X2").random()``.
+    The primary way to get one is the cipher module's own random() helper,
+    e.g. ``aeg.cipher("AEGIS-128X2").random()``, which returns a per-thread
+    singleton (each thread gets its own OS-seeded generator; no locking).
     """
 
     def __init__(self, cipher, *, seed: Buffer | None = None):

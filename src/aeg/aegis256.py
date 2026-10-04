@@ -3,8 +3,8 @@
 # DO NOT EDIT OTHER ALGORITHM FILES MANUALLY!
 
 import errno
-import secrets
 import sys
+import threading
 from typing import Literal
 
 from ._loader import ffi
@@ -21,34 +21,41 @@ ALIGNMENT = 64  #: Required alignment for internal structures
 RATE = 64  #: Byte chunk size in internal processing
 
 
-def random() -> Random:
-    """Return a new AEGIS stream Random instance using this cipher module.
+_random_tls = threading.local()
 
-    Seeded once from the OS, then deterministic: successive calls never
-    repeat an output block. See aeg.random.Random for the API.
+
+def random() -> Random:
+    """Return this module's Random instance (per-thread singleton).
+
+    Each thread gets its own generator on first use, seeded once from the
+    OS, then deterministic: successive calls never repeat an output block.
+    No locking is involved. See aeg.random.Random for the API.
     """
-    return Random(sys.modules[__name__])
+    rng = getattr(_random_tls, "rng", None)
+    if rng is None:
+        rng = _random_tls.rng = Random(sys.modules[__name__])
+    return rng
 
 
 def random_key() -> bytearray:
     """
-    Generate a secret key using cryptographically secure random bytes.
+    Generate a secret key using the module's CSPRNG (see random()).
 
     It is recommended to wipe() the key after no longer needed.
     """
-    return bytearray(secrets.token_bytes(KEYBYTES))
+    return random().bytes(KEYBYTES)
 
 
 def random_nonce() -> bytearray:
     """
-    Generate a public nonce using cryptographically secure random bytes.
+    Generate a public nonce using the module's CSPRNG (see random()).
 
     Nonces (a number used once) are public data that may be sent together
     with the ciphertext, but they need to be unique for each use.
 
     See also: nonce_increment() can be used to derive sequential nonces.
     """
-    return bytearray(secrets.token_bytes(NONCEBYTES))
+    return random().bytes(NONCEBYTES)
 
 
 def _ptr(buf):

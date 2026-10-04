@@ -128,9 +128,9 @@ Constants (per module): NAME, KEYBYTES, NONCEBYTES, MACBYTES, MACBYTES_LONG, RAT
 
 ### CSPRNG (aeg.random)
 
-Seeded once from the OS, then a deterministic AEGIS keystream: each call increments the nonce, so no output block ever repeats.
+Seeded once from the OS, then a deterministic AEGIS keystream: each call increments the nonce, so no output block ever repeats. random_key() and random_nonce() draw from it.
 
-- ciph.random() -> aeg.random.Random bound to the cipher module
+- ciph.random() -> per-thread aeg.random.Random singleton for the cipher module
 - rng.bytes(n) -> bytearray, rng.into(buf), rng(n)
 
 ### Random-access encrypted files (aeg.raf)
