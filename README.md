@@ -135,7 +135,7 @@ Seeded once from the OS, then a deterministic AEGIS keystream: each call increme
 
 ### Random-access encrypted files (aeg.raf)
 
-pread/pwrite-style access to files split into independently encrypted chunks, with optional Merkle tree integrity. Storage is pluggable (file path, aeg.raf.FileStorage, aeg.raf.BytesIOStorage, or a custom Storage).
+pread/pwrite-style access to files split into independently encrypted chunks, with optional Merkle tree integrity. Storage is pluggable: a file path, io.BytesIO, aeg.raf.FileStorage / BytesIOStorage / StreamStorage, or a custom Storage.
 
 - raf.create(path_or_storage, key, cipher, chunk_size=65536, merkle=False) / raf.open(...)
 - f.read(size, offset), f.pread(size, offset), f.write(data, offset), f.pwrite(data, offset)

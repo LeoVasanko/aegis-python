@@ -26,6 +26,26 @@ def test_roundtrip_bytesio(c):
 
 
 @pytest.mark.parametrize("c", CIPHERS, ids=cipher_id)
+def test_roundtrip_io_bytesio(c):
+    """A bare io.BytesIO is auto-wrapped in StreamStorage."""
+    import io
+
+    key = c.random_key()
+    data = bytes(range(256)) * 20
+    bio = io.BytesIO()
+    with raf.create(bio, key, c, chunk_size=CHUNK) as f:
+        f.write(data)
+        f.pwrite(b"XY", 1000)  # unaligned write across a chunk boundary
+        data = data[:1000] + b"XY" + data[1002:]
+        f.truncate(2000)
+    with raf.open(bio, key, c) as f:
+        assert f.size == 2000
+        assert f.pread(6, 999) == data[999:1005]
+        assert f.read() == data[:2000]
+    bio.close()
+
+
+@pytest.mark.parametrize("c", CIPHERS, ids=cipher_id)
 def test_roundtrip_filestorage(c, tmp_path):
     key = c.random_key()
     data = b"file-backed" * 500

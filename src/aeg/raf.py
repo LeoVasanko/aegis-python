@@ -4,8 +4,8 @@ Provides pread/pwrite-style access to encrypted files. Files are divided into
 fixed-size chunks, each independently encrypted with a fresh nonce, enabling
 efficient random access without decrypting the whole file.
 
-Use create() / open() with a cipher module (from aeg.cipher()) and either a
-path or a Storage instance.
+Use create() / open() with a cipher module (from aeg.cipher()) and a path,
+an io.BytesIO, or a Storage instance.
 
 Portions of the storage/callback/Merkle/file-like machinery are adapted from
 pyaegis (https://github.com/jedisct1/pyaegis) by Frank Denis, MIT license.
@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import errno as errno_module
 import hashlib
+import io as io_module
 import os
 import threading
 from typing import NamedTuple, Protocol, runtime_checkable
@@ -33,6 +34,7 @@ __all__ = [
     "Storage",
     "FileStorage",
     "BytesIOStorage",
+    "StreamStorage",
     "MerkleHasher",
     "SHA256MerkleHasher",
     "RafInfo",
@@ -212,6 +214,65 @@ class BytesIOStorage:
         return bytes(self._data)
 
     def __enter__(self) -> BytesIOStorage:
+        return self
+
+    def __exit__(self, *args) -> None:
+        pass
+
+
+class StreamStorage:
+    """Storage adapter for seek-based file-like objects (io.BytesIO, open files).
+
+    Uses a lock plus seek/read/write, mirroring FileStorage's fallback path
+    for platforms without os.pread/os.pwrite. The stream is not closed by
+    Raf; closing it remains the caller's responsibility.
+    """
+
+    def __init__(self, stream):
+        self._stream = stream
+        self._lock = threading.Lock()
+
+    def read_at(self, buf: bytearray, offset: int) -> None:
+        """Read exactly len(buf) bytes at offset into buf."""
+        with self._lock:
+            self._stream.seek(offset)
+            view = memoryview(buf)
+            done = 0
+            while done < len(view):
+                chunk = self._stream.read(len(view) - done)
+                if not chunk:
+                    raise OSError(f"Short read: expected {len(view)}, got {done}")
+                view[done : done + len(chunk)] = chunk
+                done += len(chunk)
+
+    def write_at(self, data: bytes, offset: int) -> None:
+        """Write exactly len(data) bytes at offset."""
+        with self._lock:
+            self._stream.seek(offset)
+            view = memoryview(data)
+            done = 0
+            while done < len(view):
+                done += self._stream.write(view[done:])
+
+    def get_size(self) -> int:
+        """Return current stream size."""
+        with self._lock:
+            pos = self._stream.tell()
+            try:
+                return self._stream.seek(0, os.SEEK_END)
+            finally:
+                self._stream.seek(pos)
+
+    def set_size(self, size: int) -> None:
+        """Resize the stream (truncate or extend with zeros)."""
+        self._stream.truncate(size)
+
+    def sync(self) -> None:
+        """Flush the stream if it supports flushing."""
+        if hasattr(self._stream, "flush"):
+            self._stream.flush()
+
+    def __enter__(self) -> StreamStorage:
         return self
 
     def __exit__(self, *args) -> None:
@@ -507,6 +568,8 @@ def probe(storage: Storage) -> RafInfo:
 def _as_storage(storage_or_path, mode: str) -> tuple[Storage, bool]:
     if isinstance(storage_or_path, (str, bytes, os.PathLike)):
         return FileStorage(storage_or_path, mode), True
+    if isinstance(storage_or_path, io_module.BytesIO):
+        return StreamStorage(storage_or_path), False
     return storage_or_path, False
 
 
