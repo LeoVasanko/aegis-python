@@ -1,6 +1,5 @@
 import random
 
-
 _rng = random.SystemRandom()
 
 

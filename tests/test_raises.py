@@ -252,6 +252,7 @@ class TestDecryptorFinalization:
 
         # Encrypt empty message
         ct, tag = aegis256x4.encrypt_detached(key, nonce, b"")
+        del ct
 
         # Decrypt without any updates
         decryptor = aegis256x4.Decryptor(key, nonce)

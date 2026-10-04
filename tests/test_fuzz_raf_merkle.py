@@ -12,8 +12,7 @@ import random
 
 import pytest
 
-from aeg import aegis128l, aegis128x2, aegis128x4, aegis256, aegis256x2, aegis256x4
-from aeg import raf
+from aeg import aegis128l, aegis128x2, aegis128x4, aegis256, aegis256x2, aegis256x4, raf
 from aeg.raf import BytesIOStorage, FileStorage
 
 CIPHERS = [aegis128l, aegis128x2, aegis128x4, aegis256, aegis256x2, aegis256x4]

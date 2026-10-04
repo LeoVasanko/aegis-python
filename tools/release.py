@@ -77,7 +77,7 @@ def get_next_version(current_version):
 def is_working_copy_clean():
     """Check if git working copy is clean."""
     result = subprocess.run(
-        ["git", "status", "--porcelain"], capture_output=True, text=True
+        ["git", "status", "--porcelain"], capture_output=True, text=True, check=False
     )
     return result.returncode == 0 and not result.stdout.strip()
 

@@ -5,7 +5,6 @@ import pathlib
 import re
 import subprocess
 import sys
-from typing import Dict, Tuple
 
 
 def preprocess_content(content: str) -> str:
@@ -58,16 +57,18 @@ def format_declaration(decl: str, max_width: int = 100) -> str:
     if len(decl) <= max_width:
         return decl
 
-    if "(" in decl and ")" in decl:
-        if match := re.match(r"(.*?\s+\w+\s*)\((.*)\)(.*)", decl):
-            prefix, params, suffix = match.groups()
-            if len(prefix) + len(params) + 2 > max_width:
-                param_list = [p.strip() for p in params.split(",")]
-                if len(param_list) > 1:
-                    formatted_params = (",\n" + " " * (len(prefix) + 1)).join(
-                        param_list
-                    )
-                    return f"{prefix}({formatted_params}){suffix}"
+    if (
+        "(" in decl
+        and ")" in decl
+        and (match := re.match(r"(.*?\s+\w+\s*)\((.*)\)(.*)", decl))
+    ):
+        prefix, params, suffix = match.groups()
+        if (
+            len(prefix) + len(params) + 2 > max_width
+            and len(param_list := [p.strip() for p in params.split(",")]) > 1
+        ):
+            formatted_params = (",\n" + " " * (len(prefix) + 1)).join(param_list)
+            return f"{prefix}({formatted_params}){suffix}"
 
     return decl
 
@@ -108,7 +109,7 @@ def generate_cdef(include_dir: pathlib.Path) -> str:
 
 def extract_constants(
     common_h_path: pathlib.Path, header_path: pathlib.Path, raf_h_path: pathlib.Path
-) -> Dict[str, int]:
+) -> dict[str, int]:
     """Extract constants from common.h (ALIGNMENT, RATE), main header (KEYBYTES, NPUBBYTES, ABYTES_*), and aegis_raf.h (RAF_ALG_ID)."""
     constants = {}
 
@@ -151,7 +152,7 @@ def extract_constants(
 
 def extract_all_constants(
     libaegis_src_dir: pathlib.Path, include_dir: pathlib.Path
-) -> Dict[str, Dict[str, int]]:
+) -> dict[str, dict[str, int]]:
     variants = [
         "aegis128l",
         "aegis128x2",
@@ -195,7 +196,7 @@ def algo_label(name: str) -> str:
     return "AEGIS-" + name[5:].upper()
 
 
-def generate_variant(template_src: str, variant: str, constants: Dict[str, int]) -> str:
+def generate_variant(template_src: str, variant: str, constants: dict[str, int]) -> str:
     """Generate a variant module from the template with substituted constants."""
     s = template_src.replace("aegis256x4", variant).replace(
         "AEGIS-256X4", algo_label(variant)
@@ -238,8 +239,8 @@ def generate_variant(template_src: str, variant: str, constants: Dict[str, int])
 def generate_python_modules(
     template_path: pathlib.Path,
     output_dir: pathlib.Path,
-    constants: Dict[str, Dict[str, int]],
-) -> Tuple[list[pathlib.Path], list[pathlib.Path]]:
+    constants: dict[str, dict[str, int]],
+) -> tuple[list[pathlib.Path], list[pathlib.Path]]:
     if not template_path.exists():
         raise FileNotFoundError(f"Template not found: {template_path}")
 
@@ -295,7 +296,7 @@ def generate_python_modules(
     return updated, unchanged
 
 
-def generate_ciphers_module(constants: Dict[str, Dict[str, int]]) -> str:
+def generate_ciphers_module(constants: dict[str, dict[str, int]]) -> str:
     labels = [algo_label(variant) for variant in constants]
     literal_items = ", ".join(f'"{label}"' for label in labels)
     lines = [
@@ -381,6 +382,7 @@ def main() -> int:
         ["uv", "run", "ruff", "format", str(pyaegis_dir)],
         capture_output=True,
         text=True,
+        check=False,
     )
     if result.returncode != 0:
         print(f"Error formatting generated files: {result.stderr}", file=sys.stderr)

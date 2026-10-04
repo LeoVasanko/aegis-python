@@ -18,7 +18,7 @@ import hashlib
 import io as io_module
 import os
 import threading
-from typing import NamedTuple, Protocol, runtime_checkable
+from typing import NamedTuple, Protocol, Self, runtime_checkable
 
 from . import cipher as _cipher_for_name
 from . import random as _random
@@ -163,7 +163,7 @@ class FileStorage:
             os.close(self._fd)
             self._closed = True
 
-    def __enter__(self) -> FileStorage:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *args) -> None:
@@ -213,7 +213,7 @@ class BytesIOStorage:
         """Return the entire buffer contents."""
         return bytes(self._data)
 
-    def __enter__(self) -> BytesIOStorage:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *args) -> None:
@@ -272,7 +272,7 @@ class StreamStorage:
         if hasattr(self._stream, "flush"):
             self._stream.flush()
 
-    def __enter__(self) -> StreamStorage:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *args) -> None:
@@ -588,8 +588,8 @@ def create(
     truncate: bool = False,
     merkle: bool | MerkleHasher = False,
     merkle_max_chunks: int = 16384,
-    rng: "_random.RandomSource | None" = None,
-) -> "Raf":
+    rng: _random.RandomSource | None = None,
+) -> Raf:
     """Create a new encrypted file.
 
     Args:
@@ -641,8 +641,8 @@ def open(
     *,
     merkle: bool | MerkleHasher = False,
     merkle_max_chunks: int = 16384,
-    rng: "_random.RandomSource | None" = None,
-) -> "Raf":
+    rng: _random.RandomSource | None = None,
+) -> Raf:
     """Open an existing encrypted file.
 
     The header is probed to size internal buffers and its alg_id is checked
@@ -922,7 +922,7 @@ class Raf:
         """True if the file has been closed."""
         return self._closed
 
-    def __enter__(self) -> "Raf":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *args) -> None:

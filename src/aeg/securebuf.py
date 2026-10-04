@@ -17,6 +17,7 @@ import ctypes
 import mmap
 import os
 from contextlib import suppress
+from typing import Self
 
 from .util import wipe
 
@@ -104,7 +105,7 @@ class SecureBuffer:
     def __len__(self) -> int:
         return len(self._mmap)
 
-    def __enter__(self) -> "SecureBuffer":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *args) -> None:
