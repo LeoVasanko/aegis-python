@@ -123,12 +123,12 @@ Constants (per module): NAME, KEYBYTES, NONCEBYTES, MACBYTES, MACBYTES_LONG, RAT
 - nonce_increment(nonce)
 - wipe(buffer)
 
-### CSPRNG (aeg.random)
+### Random Generator (CSPRNG)
 
-Seeded once from the OS, then a deterministic AEGIS keystream: each call increments the nonce, so no output block ever repeats. random_key() and random_nonce() draw from it.
+Seeded once from the OS with random key and nonce, then a cryptographically secure AEGIS keystream: each call increments the nonce, so no output block ever repeats. `random_key()` and `random_nonce()` draw from it. The into variant can directly fill Numpy integer arrays and other structures that support Buffer API, making it far faster than any alternatives (e.g. Numpy's own random module).
 
-- ciph.random() -> per-thread aeg.random.Random singleton for the cipher module
-- rng.bytes(n) -> bytearray, rng.into(buf), rng(n)
+- random().bytes(n) -> bytearray
+- random().into(buffer) -> None
 
 ### Random-access encrypted files (aeg.raf)
 
