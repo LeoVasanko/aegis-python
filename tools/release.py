@@ -129,29 +129,6 @@ def get_build_env():
     return env
 
 
-def normalize_line_endings(repo_root: Path):
-    """Normalize all text files to LF line endings."""
-    # Patterns for files to normalize
-    patterns = [
-        "src/aeg/**/*.py",
-        "src/aeg/**/*.h",
-        "tests/**/*.py",
-        "tools/**/*.py",
-        "*.py",
-        "*.md",
-        "*.txt",
-        "*.toml",
-        "*.in",
-    ]
-    for pattern in patterns:
-        for file_path in repo_root.glob(pattern):
-            if file_path.is_file():
-                content = file_path.read_bytes()
-                if b"\r\n" in content:
-                    content = content.replace(b"\r\n", b"\n")
-                    file_path.write_bytes(content)
-
-
 def get_wheel_pattern(py_version: str, abi3: bool = False) -> str:
     """Get the glob pattern for finding a wheel file."""
     if abi3:
@@ -317,29 +294,28 @@ def main():
     repo_root = Path(__file__).parent.parent
     dist_dir = repo_root / "dist"
 
-    # Generate CFFI definitions and Python modules
+    # The repository must already contain up-to-date generated code and
+    # lint-clean sources: a release build never writes to tracked files.
+    # Line endings are normalized to LF on checkout via .gitattributes.
     print(f"\n{'=' * 70}")
-    print("Code generation from C headers (tools/generate.py)")
+    print("Validating generated files (tools/generate.py --check)")
     print(f"{'=' * 70}")
-    if generate.main() != 0:
-        print("✗ Code generation failed", file=sys.stderr)
+    if generate.main(check=True) != 0:
         return 1
 
-    # Run ruff to check and fix any issues
     print(f"\n{'=' * 70}")
-    print("Linting and formatting")
+    print("Lint and format validation")
     print(f"{'=' * 70}")
-    if not run_command(["uv", "run", "ruff", "check", "--fix", "."]):
-        print("✗ Ruff check failed", file=sys.stderr)
+    if not run_command(["uv", "run", "ruff", "check", "."]):
+        print("✗ Ruff check failed; fix and commit before releasing", file=sys.stderr)
         return 1
 
-    # Run ruff format
-    if not run_command(["uv", "run", "ruff", "format", "."]):
-        print("✗ Ruff format failed", file=sys.stderr)
+    if not run_command(["uv", "run", "ruff", "format", "--check", "."]):
+        print(
+            "✗ Ruff format check failed; run 'uv run ruff format .' and commit",
+            file=sys.stderr,
+        )
         return 1
-
-    # Normalize all line endings to LF (important for consistent builds)
-    normalize_line_endings(repo_root)
 
     # Get version from git repo
     version = get_version_from_scm()
@@ -348,8 +324,8 @@ def main():
     is_release = is_release_version(version)
 
     # On a tagged commit the version must be a clean release (e.g. 0.10.6).
-    # A dev/dirty version means the steps above rewrote a tracked file (or the
-    # checkout was dirty); PyPI rejects such versions, so fail before building.
+    # A dev/dirty version means the checkout itself is dirty (PyPI rejects
+    # such versions), so fail before building.
     head_tags = subprocess.run(
         ["git", "tag", "--points-at", "HEAD", "--list", "v*"],
         capture_output=True,

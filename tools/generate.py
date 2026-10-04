@@ -73,6 +73,42 @@ def format_declaration(decl: str, max_width: int = 100) -> str:
     return decl
 
 
+def _ruff_format_source(content: str, filename: str) -> str:
+    """Format Python source in memory (ruff format via stdin, no file writes)."""
+    result = subprocess.run(
+        ["uv", "run", "ruff", "format", "--stdin-filename", filename, "-"],
+        input=content,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return result.stdout
+
+
+def _is_up_to_date(path: pathlib.Path, content: str, check: bool) -> bool:
+    """True if writing content to path would leave it unchanged. In check mode,
+    Python content is compared in its ruff-formatted form, matching what a
+    write + format pass would produce."""
+    if not path.exists():
+        return False
+    if check and path.suffix == ".py":
+        content = _ruff_format_source(content, path.name)
+    return path.read_text(encoding="utf-8") == content
+
+
+def _sync_file(
+    path: pathlib.Path, content: str, check: bool, stale: list[pathlib.Path]
+) -> None:
+    """Write content to path, or in check mode record it as stale instead."""
+    if _is_up_to_date(path, content, check):
+        print(f"  - No changes to {path.name}", file=sys.stderr)
+    elif check:
+        stale.append(path)
+    else:
+        path.write_bytes(content.encode())
+        print(f"  - Updated {path}", file=sys.stderr)
+
+
 def generate_cdef(include_dir: pathlib.Path) -> str:
     # cffi pre-defines uint8_t, size_t, etc. with the correct platform sizes.
     # Do not typedef them here: "unsigned long" matches size_t on LP64 but is
@@ -240,6 +276,7 @@ def generate_python_modules(
     template_path: pathlib.Path,
     output_dir: pathlib.Path,
     constants: dict[str, dict[str, int]],
+    check: bool = False,
 ) -> tuple[list[pathlib.Path], list[pathlib.Path]]:
     if not template_path.exists():
         raise FileNotFoundError(f"Template not found: {template_path}")
@@ -287,10 +324,11 @@ def generate_python_modules(
         else:
             new_content = generate_variant(template_src, variant, const_dict)
 
-        if dst.exists() and dst.read_text(encoding="utf-8") == new_content:
+        if _is_up_to_date(dst, new_content, check):
             unchanged.append(dst)
         else:
-            dst.write_bytes(new_content.encode())
+            if not check:
+                dst.write_bytes(new_content.encode())
             updated.append(dst)
 
     return updated, unchanged
@@ -313,7 +351,9 @@ def generate_ciphers_module(constants: dict[str, dict[str, int]]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def main() -> int:
+def main(check: bool = False) -> int:
+    """Regenerate files from the C sources. With check=True, only verify the
+    committed files are up to date; nothing is written."""
     root = pathlib.Path(__file__).parent.parent
     libaegis_src_dir = root / "libaegis" / "src"
     include_dir = libaegis_src_dir / "include"
@@ -333,36 +373,26 @@ def main() -> int:
         print("Error: No constants extracted", file=sys.stderr)
         return 1
 
-    print("Step 2: Generating CFFI cdef header...", file=sys.stderr)
-    pyaegis_dir.mkdir(exist_ok=True)
-    cdef_path = pyaegis_dir / "aegis_cdef.h"
-    cdef_content = generate_cdef(include_dir)
+    stale: list[pathlib.Path] = []
 
-    if cdef_path.exists() and cdef_path.read_text(encoding="utf-8") == cdef_content:
-        print(f"  - No changes to {cdef_path}", file=sys.stderr)
-    else:
-        cdef_path.write_bytes(cdef_content.encode())
-        print(f"  - Updated {cdef_path}", file=sys.stderr)
+    print("Step 2: Generating CFFI cdef header...", file=sys.stderr)
+    if not check:
+        pyaegis_dir.mkdir(exist_ok=True)
+    _sync_file(pyaegis_dir / "aegis_cdef.h", generate_cdef(include_dir), check, stale)
 
     print("Step 3: Generating _ciphers.py...", file=sys.stderr)
-    ciphers_path = pyaegis_dir / "_ciphers.py"
-    ciphers_content = generate_ciphers_module(constants)
-
-    if (
-        ciphers_path.exists()
-        and ciphers_path.read_text(encoding="utf-8") == ciphers_content
-    ):
-        print(f"  - No changes to {ciphers_path.name}", file=sys.stderr)
-    else:
-        ciphers_path.write_bytes(ciphers_content.encode())
-        print(f"  - Updated {ciphers_path.name}", file=sys.stderr)
+    _sync_file(
+        pyaegis_dir / "_ciphers.py", generate_ciphers_module(constants), check, stale
+    )
 
     print("Step 4: Generating Python modules...", file=sys.stderr)
     try:
         updated, unchanged = generate_python_modules(
-            pyaegis_dir / "aegis256x4.py", pyaegis_dir, constants
+            pyaegis_dir / "aegis256x4.py", pyaegis_dir, constants, check=check
         )
-        if updated:
+        if check:
+            stale.extend(updated)
+        else:
             for p in updated:
                 print(f"  - {p.relative_to(root)}", file=sys.stderr)
         if unchanged:
@@ -376,6 +406,19 @@ def main() -> int:
     except Exception as e:
         print(f"Error generating Python modules: {e}", file=sys.stderr)
         return 1
+
+    if check:
+        for p in stale:
+            print(f"  - Out of date: {p.relative_to(root)}", file=sys.stderr)
+        if stale:
+            print(
+                "✗ Generated files are out of date; "
+                "run tools/generate.py and commit the result",
+                file=sys.stderr,
+            )
+            return 1
+        print("All generated files are up to date.", file=sys.stderr)
+        return 0
 
     print("Step 5: Formatting generated files with ruff...", file=sys.stderr)
     result = subprocess.run(
@@ -392,4 +435,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(check="--check" in sys.argv))
