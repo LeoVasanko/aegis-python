@@ -25,22 +25,44 @@ jobs:
       # accounts) and powershell hits the script execution policy under SYSTEM.
       # --recursive pulls in the libaegis submodule needed by the build backend.
       - name: Checkout
+        if: matrix.os != 'windows'
         shell: ${{ matrix.shell }}
         run: |
           git clone --recursive "${{ gitea.server_url }}/${{ gitea.repository }}.git" .
           git checkout -f "${{ gitea.sha }}"
 
+      # Windows runners execute as SYSTEM with the workspace under
+      # C:\Windows\System32\config\systemprofile. cl.exe is a 32-bit binary,
+      # so WOW64 redirects its file access to SysWOW64 and it cannot see the
+      # sources (C1083: aegis.h not found). Build from a path outside %WINDIR%.
+      - name: Checkout
+        if: matrix.os == 'windows'
+        shell: cmd
+        run: |
+          if exist C:\aeg-build rmdir /s /q C:\aeg-build
+          git clone --recursive "${{ gitea.server_url }}/${{ gitea.repository }}.git" C:\aeg-build
+          cd /d C:\aeg-build
+          git checkout -f "${{ gitea.sha }}"
+
       # Builds sdist + all wheel variants for this platform, runs tests and
       # benchmarks, leaves everything in dist/. Upload is left to publish-pypi.
       - name: Build wheels for this platform
+        if: matrix.os != 'windows'
         shell: ${{ matrix.shell }}
         run: uv run tools/release.py --no-upload
+
+      - name: Build wheels for this platform
+        if: matrix.os == 'windows'
+        shell: cmd
+        run: |
+          cd /d C:\aeg-build
+          uv run tools/release.py --no-upload
 
       - name: Upload wheels as artifact
         uses: actions/upload-artifact@v4
         with:
           name: dist-${{ matrix.os }}
-          path: dist/
+          path: ${{ matrix.os == 'windows' && 'C:\aeg-build\dist\' || 'dist/' }}
           retention-days: 1
 
   # Publish to PyPI only once every platform's wheel build has succeeded.
