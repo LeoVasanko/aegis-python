@@ -129,6 +129,31 @@ def get_build_env():
     return env
 
 
+# Text files that must have LF line endings (.gitattributes enforces this on
+# checkout; release validation fails instead of rewriting)
+LINE_ENDING_PATTERNS = [
+    "src/aeg/**/*.py",
+    "src/aeg/**/*.h",
+    "tests/**/*.py",
+    "tools/**/*.py",
+    "*.py",
+    "*.md",
+    "*.txt",
+    "*.toml",
+    "*.in",
+]
+
+
+def find_crlf_files(repo_root: Path) -> list[Path]:
+    """Return text files containing CRLF line endings."""
+    bad = []
+    for pattern in LINE_ENDING_PATTERNS:
+        for file_path in repo_root.glob(pattern):
+            if file_path.is_file() and b"\r\n" in file_path.read_bytes():
+                bad.append(file_path)
+    return bad
+
+
 def get_wheel_pattern(py_version: str, abi3: bool = False) -> str:
     """Get the glob pattern for finding a wheel file."""
     if abi3:
@@ -296,7 +321,7 @@ def main():
 
     # The repository must already contain up-to-date generated code and
     # lint-clean sources: a release build never writes to tracked files.
-    # Line endings are normalized to LF on checkout via .gitattributes.
+    # Line endings must be LF (.gitattributes enforces this on checkout).
     print(f"\n{'=' * 70}")
     print("Validating generated files (tools/generate.py --check)")
     print(f"{'=' * 70}")
@@ -313,6 +338,16 @@ def main():
     if not run_command(["uv", "run", "ruff", "format", "--check", "."]):
         print(
             "✗ Ruff format check failed; run 'uv run ruff format .' and commit",
+            file=sys.stderr,
+        )
+        return 1
+
+    if crlf_files := find_crlf_files(repo_root):
+        print("✗ CRLF line endings found in:", file=sys.stderr)
+        for p in crlf_files:
+            print(f"  - {p.relative_to(repo_root)}", file=sys.stderr)
+        print(
+            "Convert to LF and commit (.gitattributes enforces eol=lf).",
             file=sys.stderr,
         )
         return 1
