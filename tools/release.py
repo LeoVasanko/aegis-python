@@ -312,6 +312,10 @@ def run_benchmark(wheel: Path, py_version: str) -> bool:
 
 def main():
     """Build wheels for all supported Python versions."""
+    # CI matrix jobs build per-platform wheels but never upload; a separate
+    # publish job uploads everything once all platforms have succeeded.
+    no_upload = "--no-upload" in sys.argv
+
     repo_root = Path(__file__).parent.parent
     dist_dir = repo_root / "dist"
 
@@ -460,6 +464,10 @@ def main():
         print(f"  - {file.name}")
 
     # Only upload if this is a clean release version
+    if no_upload:
+        print("\n--no-upload given; upload to PyPI skipped.")
+        return 0
+
     if not is_release:
         print(make_release_message(version))
         return 0

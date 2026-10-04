@@ -1,0 +1,67 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+# Runner host prerequisites: git, uv, zig, and a C compiler.
+jobs:
+  build-wheels:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos
+            shell: bash
+          - os: windows
+            shell: cmd
+          - os: linux
+            shell: bash
+    runs-on: ${{ matrix.os }}
+    steps:
+      # Plain git clone: full history so setuptools_scm sees tags, and both
+      # shells work. Windows uses cmd: bash resolves to WSL (refuses SYSTEM
+      # accounts) and powershell hits the script execution policy under SYSTEM.
+      # --recursive pulls in the libaegis submodule needed by the build backend.
+      - name: Checkout
+        shell: ${{ matrix.shell }}
+        run: |
+          git clone --recursive "${{ gitea.server_url }}/${{ gitea.repository }}.git" .
+          git checkout -f "${{ gitea.sha }}"
+
+      # Builds sdist + all wheel variants for this platform, runs tests and
+      # benchmarks, leaves everything in dist/. Upload is left to publish-pypi.
+      - name: Build wheels for this platform
+        shell: ${{ matrix.shell }}
+        run: uv run tools/release.py --no-upload
+
+      - name: Upload wheels as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.os }}
+          path: dist/
+          retention-days: 1
+
+  # Publish to PyPI only once every platform's wheel build has succeeded.
+  # Jobs don't share a workspace, so the per-platform dist/ directories are
+  # passed around as artifacts and merged here. No Gitea release is created.
+  publish-pypi:
+    needs: build-wheels
+    runs-on: linux
+    steps:
+      - name: Download all platform wheels
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          path: dist
+          merge-multiple: true
+
+      # The sdist is identical across platforms; --skip-existing also makes
+      # reruns of a partially-published release safe.
+      - name: Publish to PyPI
+        shell: bash
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+        run: uvx twine upload --skip-existing dist/**
