@@ -8,5 +8,6 @@
 /src/aeg/_aegis*.pyd
 __pycache__
 !.gitignore
+!.gitattributes
 !.gitea/
 !.gitmodules

@@ -347,6 +347,33 @@ def main():
         return 1
     is_release = is_release_version(version)
 
+    # On a tagged commit the version must be a clean release (e.g. 0.10.6).
+    # A dev/dirty version means the steps above rewrote a tracked file (or the
+    # checkout was dirty); PyPI rejects such versions, so fail before building.
+    head_tags = subprocess.run(
+        ["git", "tag", "--points-at", "HEAD", "--list", "v*"],
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout.split()
+    if head_tags and not is_release:
+        print(
+            f"✗ HEAD is tagged ({', '.join(head_tags)}) but the version resolved "
+            f"to {version}, not a clean release.",
+            file=sys.stderr,
+        )
+        dirty = subprocess.run(
+            ["git", "status", "--porcelain"],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout
+        if dirty.strip():
+            print("Working copy is dirty:", file=sys.stderr)
+            print(dirty, file=sys.stderr, end="")
+        print("Commit the changes, re-tag, and run again.", file=sys.stderr)
+        return 1
+
     # Main header for the packaging process
     print(f"\n{'=' * 70}")
     print(
