@@ -126,6 +126,23 @@ Constants (per module): NAME, KEYBYTES, NONCEBYTES, MACBYTES, MACBYTES_LONG, RAT
 - nonce_increment(nonce)
 - wipe(buffer)
 
+### CSPRNG (aeg.random)
+
+Seeded once from the OS, then a deterministic AEGIS keystream: each call increments the nonce, so no output block ever repeats.
+
+- ciph.random() -> aeg.random.Random bound to the cipher module
+- rng.bytes(n) -> bytearray, rng.into(buf), rng(n)
+
+### Random-access encrypted files (aeg.raf)
+
+pread/pwrite-style access to files split into independently encrypted chunks, with optional Merkle tree integrity. Storage is pluggable (file path, aeg.raf.FileStorage, aeg.raf.BytesIOStorage, or a custom Storage).
+
+- raf.create(path_or_storage, key, cipher, chunk_size=65536, merkle=False) / raf.open(...)
+- f.read(size, offset), f.pread(size, offset), f.write(data, offset), f.pwrite(data, offset)
+- f.seek/tell/truncate/sync/close, context manager support
+- f.merkle_rebuild(), f.merkle_verify(), f.root_hash, f.verify_root(expected)
+- raf.probe(storage) -> RafInfo, raf.derive_master_key(key, context)
+
 ### Exceptions
 
 - Authentication failures raise ValueError.
@@ -258,6 +275,14 @@ Note: this is seekable by converting the block number to nonce with `idx.to_byte
 For advanced use cases, the output buffer can be supplied with `into` kwarg. Any type of writable buffer with a sufficient number of bytes can be used. This includes bytearrays, memoryviews, mmap files, numpy arrays etc.
 
 A `TypeError` is raised if the buffer is too small. For convenience, the functions return a memoryview showing only the bytes actually written.
+
+For sensitive data, `aeg.securebuf.SecureBuffer` provides memory locked against swapping and excluded from core dumps, wiped on close:
+
+```python
+from aeg.securebuf import SecureBuffer
+with SecureBuffer(1024) as buf:
+    pt = ciph.decrypt(key, nonce, ct, into=buf)
+```
 
 Foreign arrays can be used. This example fills a Numpy array with random integers.
 
