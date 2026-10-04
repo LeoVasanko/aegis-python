@@ -305,6 +305,11 @@ def run_benchmark(wheel: Path, py_version: str) -> bool:
 
 def main():
     """Build wheels for all supported Python versions."""
+    # Windows CI consoles default to cp1252; emit ✓/✗/⚠ as UTF-8
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
     # CI matrix jobs build per-platform wheels but never upload; a separate
     # publish job uploads everything once all platforms have succeeded.
     no_upload = "--no-upload" in sys.argv

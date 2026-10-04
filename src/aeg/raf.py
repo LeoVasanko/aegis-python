@@ -104,6 +104,9 @@ class FileStorage:
             flags = os.O_RDWR | os.O_CREAT | os.O_EXCL
         else:
             raise ValueError(f"Unsupported mode: {mode}")
+        # O_BINARY (Windows only): keep the CRT from translating \r\n in
+        # binary data, which corrupts ciphertext and shifts offsets
+        flags |= getattr(os, "O_BINARY", 0)
         self._fd = os.open(path, flags, 0o644)
         self._closed = False
         self._lock = threading.Lock()
