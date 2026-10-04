@@ -3,6 +3,7 @@
 
 import pathlib
 import re
+import subprocess
 import sys
 from typing import Dict, Tuple
 
@@ -373,6 +374,16 @@ def main() -> int:
             )
     except Exception as e:
         print(f"Error generating Python modules: {e}", file=sys.stderr)
+        return 1
+
+    print("Step 5: Formatting generated files with ruff...", file=sys.stderr)
+    result = subprocess.run(
+        ["uv", "run", "ruff", "format", str(pyaegis_dir)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        print(f"Error formatting generated files: {result.stderr}", file=sys.stderr)
         return 1
 
     return 0

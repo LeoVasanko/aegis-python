@@ -54,6 +54,7 @@ _FLAG_TRUNCATE = 0x02
 _MERKLE_HASH_MIN = 8
 _MERKLE_HASH_MAX = 64
 
+
 @runtime_checkable
 class Storage(Protocol):
     """Backing storage for RAF files. Operations must complete fully or raise OSError."""
