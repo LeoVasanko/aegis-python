@@ -4,10 +4,12 @@
 
 import errno
 import secrets
+import sys
 from typing import Literal
 
 from ._loader import ffi
 from ._loader import lib as _lib
+from .random import Random
 from .util import Buffer, new_aligned_struct, nonce_increment, wipe
 
 NAME = "AEGIS-128L"  #: Algorithm display name
@@ -17,6 +19,15 @@ MACBYTES = 16  #: Normal MAC size (always 16)
 MACBYTES_LONG = 32  #: Long MAC size (always 32)
 ALIGNMENT = 64  #: Required alignment for internal structures
 RATE = 64  #: Byte chunk size in internal processing
+
+
+def random() -> Random:
+    """Return a new AEGIS stream Random instance using this cipher module.
+
+    Seeded once from the OS, then deterministic: successive calls never
+    repeat an output block. See aeg.random.Random for the API.
+    """
+    return Random(sys.modules[__name__])
 
 
 def random_key() -> bytearray:
@@ -868,6 +879,220 @@ def new_mac_state():
     return new_aligned_struct("aegis128l_mac_state", ALIGNMENT)
 
 
+RAF_ALG_ID = 1  #: Algorithm identifier in RAF file headers
+
+
+def _raise_errno(operation: str) -> None:
+    err_num = ffi.errno
+    err_name = errno.errorcode.get(err_num, f"errno_{err_num}")
+    raise RuntimeError(f"{operation} failed: {err_name}")
+
+
+def new_raf_ctx():
+    """Allocate and return a new aegis128l_raf_ctx* with proper alignment."""
+    return new_aligned_struct("aegis128l_raf_ctx", ALIGNMENT)
+
+
+def raf_scratch_size(chunk_size: int) -> int:
+    """Return the scratch buffer size required for the given chunk_size."""
+    return _lib.aegis128l_raf_scratch_size(chunk_size)
+
+
+def raf_create(key: Buffer, ctx, io, rng, config) -> None:
+    """Create a new encrypted file, writing the header through io.
+
+    Args:
+        key: Master key (KEYBYTES bytes).
+        ctx: Context from new_raf_ctx().
+        io: aegis_raf_io* cdata (see aeg.raf).
+        rng: aegis_raf_rng* cdata (see aeg.random).
+        config: aegis_raf_config* cdata (see aeg.raf).
+
+    Raises:
+        TypeError: If key length is invalid.
+        FileExistsError: If the file exists and AEGIS_RAF_TRUNCATE was not set.
+        RuntimeError: If creation fails.
+    """
+    key = memoryview(key)
+    if key.nbytes != KEYBYTES:
+        raise TypeError(f"key length must be {KEYBYTES}")
+    rc = _lib.aegis128l_raf_create(ctx.ptr, io, rng, config, _ptr(key))
+    if rc != 0:
+        if ffi.errno == errno.EEXIST:
+            raise FileExistsError("file exists (use truncate to overwrite)")
+        _raise_errno("raf create")
+
+
+def raf_open(key: Buffer, ctx, io, rng, config) -> None:
+    """Open an existing encrypted file, verifying the header MAC.
+
+    Args:
+        key: Master key (KEYBYTES bytes).
+        ctx: Context from new_raf_ctx().
+        io: aegis_raf_io* cdata (see aeg.raf).
+        rng: aegis_raf_rng* cdata (see aeg.random).
+        config: aegis_raf_config* cdata (see aeg.raf).
+
+    Raises:
+        TypeError: If key length is invalid.
+        FileNotFoundError: If the file does not exist.
+        ValueError: If the header is invalid or authentication fails (wrong key).
+        RuntimeError: If opening fails.
+    """
+    key = memoryview(key)
+    if key.nbytes != KEYBYTES:
+        raise TypeError(f"key length must be {KEYBYTES}")
+    rc = _lib.aegis128l_raf_open(ctx.ptr, io, rng, config, _ptr(key))
+    if rc != 0:
+        err_num = ffi.errno
+        if err_num == errno.ENOENT:
+            raise FileNotFoundError("file not found")
+        if err_num in (errno.EINVAL, getattr(errno, "EBADMSG", -1)):
+            raise ValueError("authentication failed")
+        _raise_errno("raf open")
+
+
+def raf_read(
+    ctx, length: int, offset: int, *, into: Buffer | None = None
+) -> bytearray | memoryview:
+    """Read and decrypt up to length bytes at offset.
+
+    Returns:
+        The decrypted bytes, trimmed to the number actually read
+        (fewer at EOF), as bytearray if into not provided,
+        memoryview of into otherwise.
+
+    Raises:
+        TypeError: If into is smaller than length.
+        ValueError: If authentication fails (corruption or tampering).
+        RuntimeError: If the read fails.
+    """
+    if into is None:
+        out = bytearray(length)
+    else:
+        into = memoryview(into)
+        if into.nbytes < length:
+            raise TypeError("into length must be at least length")
+        out = into
+    bytes_read = ffi.new("size_t*")
+    rc = _lib.aegis128l_raf_read(
+        ctx.ptr, ffi.from_buffer(out), bytes_read, length, offset
+    )
+    if rc != 0:
+        err_num = ffi.errno
+        if err_num in (errno.EINVAL, getattr(errno, "EBADMSG", -1)):
+            raise ValueError("authentication failed")
+        _raise_errno("raf read")
+    n = bytes_read[0]
+    return out[:n] if into is None else memoryview(out)[:n]  # type: ignore
+
+
+def raf_write(ctx, data: Buffer, offset: int) -> int:
+    """Encrypt and write data at offset, extending the file as needed.
+
+    Returns:
+        Number of bytes written.
+
+    Raises:
+        RuntimeError: If the write fails (errno name included).
+    """
+    data = memoryview(data)
+    bytes_written = ffi.new("size_t*")
+    rc = _lib.aegis128l_raf_write(
+        ctx.ptr, bytes_written, _ptr(data), data.nbytes, offset
+    )
+    if rc != 0:
+        _raise_errno("raf write")
+    return bytes_written[0]
+
+
+def raf_truncate(ctx, size: int) -> None:
+    """Resize the file to size bytes (zero-filled when growing).
+
+    Raises:
+        RuntimeError: If the truncate fails.
+    """
+    rc = _lib.aegis128l_raf_truncate(ctx.ptr, size)
+    if rc != 0:
+        _raise_errno("raf truncate")
+
+
+def raf_size(ctx) -> int:
+    """Return the logical plaintext file size."""
+    size = ffi.new("uint64_t*")
+    rc = _lib.aegis128l_raf_get_size(ctx.ptr, size)
+    if rc != 0:
+        _raise_errno("raf get_size")
+    return size[0]
+
+
+def raf_sync(ctx) -> None:
+    """Flush writes to the backing store.
+
+    Raises:
+        RuntimeError: If the sync fails.
+    """
+    rc = _lib.aegis128l_raf_sync(ctx.ptr)
+    if rc != 0:
+        _raise_errno("raf sync")
+
+
+def raf_close(ctx) -> None:
+    """Close the context, syncing and zeroizing key material."""
+    _lib.aegis128l_raf_close(ctx.ptr)
+
+
+def raf_merkle_rebuild(ctx) -> None:
+    """Rebuild the Merkle tree by reading and re-hashing every chunk.
+
+    Raises:
+        RuntimeError: If Merkle is not enabled or rebuilding fails.
+        ValueError: If a chunk fails authentication.
+    """
+    rc = _lib.aegis128l_raf_merkle_rebuild(ctx.ptr)
+    if rc != 0:
+        err_num = ffi.errno
+        if err_num in (errno.EINVAL, getattr(errno, "EBADMSG", -1)):
+            raise ValueError("authentication failed")
+        _raise_errno("raf merkle_rebuild")
+
+
+def raf_merkle_verify(ctx) -> int | None:
+    """Verify every chunk's hash against the Merkle tree.
+
+    Returns:
+        None if all chunks match, otherwise the index of the first
+        corrupted chunk.
+
+    Raises:
+        RuntimeError: If Merkle is not enabled or verification fails.
+    """
+    corrupted = ffi.new("uint64_t*")
+    rc = _lib.aegis128l_raf_merkle_verify(ctx.ptr, corrupted)
+    if rc == 0:
+        return None
+    err_num = ffi.errno
+    if err_num in (errno.EINVAL, getattr(errno, "EBADMSG", -1)):
+        return corrupted[0]
+    _raise_errno("raf merkle_verify")
+
+
+def raf_merkle_commitment(ctx, hash_len: int) -> bytes:
+    """Compute the Merkle root commitment hash.
+
+    Returns:
+        The commitment hash as bytes of length hash_len.
+
+    Raises:
+        RuntimeError: If Merkle is not enabled or the call fails.
+    """
+    out = ffi.new(f"uint8_t[{hash_len}]")
+    rc = _lib.aegis128l_raf_merkle_commitment(ctx.ptr, out, hash_len)
+    if rc != 0:
+        _raise_errno("raf merkle_commitment")
+    return bytes(ffi.buffer(out, hash_len))
+
+
 __all__ = [
     # constants
     "NAME",
@@ -877,7 +1102,9 @@ __all__ = [
     "MACBYTES_LONG",
     "ALIGNMENT",
     "RATE",
+    "RAF_ALG_ID",
     # utility functions
+    "random",
     "random_key",
     "random_nonce",
     "nonce_increment",
@@ -895,4 +1122,18 @@ __all__ = [
     "Encryptor",
     "Decryptor",
     "Mac",
+    # random-access encrypted files (thin wrappers; see aeg.raf for the high-level API)
+    "new_raf_ctx",
+    "raf_scratch_size",
+    "raf_create",
+    "raf_open",
+    "raf_read",
+    "raf_write",
+    "raf_truncate",
+    "raf_size",
+    "raf_sync",
+    "raf_close",
+    "raf_merkle_rebuild",
+    "raf_merkle_verify",
+    "raf_merkle_commitment",
 ]

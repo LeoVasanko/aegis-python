@@ -88,6 +88,7 @@ def generate_cdef(include_dir: pathlib.Path) -> str:
         "aegis256.h",
         "aegis256x2.h",
         "aegis256x4.h",
+        "aegis_raf.h",
     ]
 
     for header_name in headers:
@@ -105,9 +106,9 @@ def generate_cdef(include_dir: pathlib.Path) -> str:
 
 
 def extract_constants(
-    common_h_path: pathlib.Path, header_path: pathlib.Path
+    common_h_path: pathlib.Path, header_path: pathlib.Path, raf_h_path: pathlib.Path
 ) -> Dict[str, int]:
-    """Extract constants from common.h (ALIGNMENT, RATE) and main header (KEYBYTES, NPUBBYTES, ABYTES_*)."""
+    """Extract constants from common.h (ALIGNMENT, RATE), main header (KEYBYTES, NPUBBYTES, ABYTES_*), and aegis_raf.h (RAF_ALG_ID)."""
     constants = {}
 
     # Extract from common.h
@@ -136,6 +137,14 @@ def extract_constants(
             raise ValueError(f"Could not extract {const_name} from {header_path}")
         constants[const_name] = int(match.group(1))
 
+    # Extract RAF algorithm id from aegis_raf.h
+    raf_content = raf_h_path.read_text(encoding="utf-8")
+    raf_pattern = rf"^\s*#define\s+AEGIS_RAF_ALG_{variant[5:].upper()}\s+(\d+)"
+    raf_match = re.search(raf_pattern, raf_content, re.MULTILINE)
+    if not raf_match:
+        raise ValueError(f"Could not extract RAF_ALG_ID from {raf_h_path}")
+    constants["RAF_ALG_ID"] = int(raf_match.group(1))
+
     return constants
 
 
@@ -155,6 +164,7 @@ def extract_all_constants(
     for variant in variants:
         common_h = libaegis_src_dir / variant / f"{variant}_common.h"
         header_h = include_dir / f"{variant}.h"
+        raf_h = include_dir / "aegis_raf.h"
 
         if not common_h.exists():
             print(f"Warning: {common_h} not found, skipping {variant}", file=sys.stderr)
@@ -165,7 +175,7 @@ def extract_all_constants(
             continue
 
         try:
-            constants[variant] = extract_constants(common_h, header_h)
+            constants[variant] = extract_constants(common_h, header_h, raf_h)
         except Exception as e:
             print(f"Error extracting constants from {variant}: {e}", file=sys.stderr)
 
@@ -215,6 +225,11 @@ def generate_variant(template_src: str, variant: str, constants: Dict[str, int])
         f"MACBYTES_LONG = {constants['ABYTES_MAX']}",
         s,
     )
+    s = re.sub(
+        r"RAF_ALG_ID = \d+",
+        f"RAF_ALG_ID = {constants['RAF_ALG_ID']}",
+        s,
+    )
 
     return s
 
@@ -260,6 +275,11 @@ def generate_python_modules(
             new_content = re.sub(
                 r"MACBYTES_LONG = \d+",
                 f"MACBYTES_LONG = {const_dict['ABYTES_MAX']}",
+                new_content,
+            )
+            new_content = re.sub(
+                r"RAF_ALG_ID = \d+",
+                f"RAF_ALG_ID = {const_dict['RAF_ALG_ID']}",
                 new_content,
             )
         else:
