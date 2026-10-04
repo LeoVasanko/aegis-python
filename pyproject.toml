@@ -26,6 +26,7 @@ Repository = "https://github.com/LeoVasanko/aegis-python"
 [dependency-groups]
 dev = [
     "auditwheel>=6.8.2",
+    "patchelf>=0.17; sys_platform == 'linux'",
     "pytest>=9.1.1",
     "ruff>=0.16.10",
     "setuptools>=84.0.0",

@@ -7,12 +7,14 @@ from pathlib import Path
 from cffi import FFI
 from setuptools import setup
 
-libaegis_static = Path("libaegis/zig-out/lib") / (
+ROOT = Path(__file__).parent.resolve()
+
+libaegis_static = ROOT / "libaegis/zig-out/lib" / (
     "aegis.lib" if sys.platform == "win32" else "libaegis.a"
 )
 
 ffibuilder = FFI()
-ffibuilder.cdef((Path(__file__).parent / "src/aeg/aegis_cdef.h").read_text())
+ffibuilder.cdef((ROOT / "src/aeg/aegis_cdef.h").read_text())
 
 # Free-threaded Python does not support Limited API (abi3)
 is_free_threaded = sysconfig.get_config_var("Py_GIL_DISABLED")
@@ -28,8 +30,8 @@ ffibuilder.set_source(
     #include "aegis256x2.h"
     #include "aegis256x4.h"
     """,
-    include_dirs=["libaegis/src/include"],
-    extra_objects=[str(libaegis_static.resolve())],
+    include_dirs=[str(ROOT / "libaegis/src/include")],
+    extra_objects=[str(libaegis_static)],
     py_limited_api=not is_free_threaded,
 )
 
