@@ -37,6 +37,6 @@ if __name__ == "__main__":
     setup(
         cffi_modules=["setup.py:ffibuilder"],
         options=(
-            {"bdist_wheel": {"py_limited_api": "cp310"}} if not is_free_threaded else {}
+            {"bdist_wheel": {"py_limited_api": "cp312"}} if not is_free_threaded else {}
         ),
     )

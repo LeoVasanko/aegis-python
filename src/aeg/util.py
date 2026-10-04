@@ -4,18 +4,11 @@ Currently provides Python-side aligned allocation helpers that avoid relying
 on libc/posix_memalign. Memory is owned by Python; C code only borrows it.
 """
 
-from typing import Protocol
+from collections.abc import Buffer
 
 from ._loader import ffi
 
 __all__ = ["new_aligned_struct", "aligned_address", "Buffer", "nonce_increment", "wipe"]
-
-try:
-    from collections.abc import Buffer  # type: ignore
-except ImportError:
-    # Fallback for Python < 3.12
-    class Buffer(Protocol):
-        def __buffer__(self, flags: int) -> memoryview: ...
 
 
 def aligned_address(obj) -> int:

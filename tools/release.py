@@ -23,20 +23,16 @@ ABI3_BUILD_VERSION = "3.14+gil"
 
 # All GIL-enabled Python versions covered by the ABI3 wheel
 ABI3_COVERED_VERSIONS = [
-    "3.10",
-    "3.11",
     "3.12",
     "3.13+gil",
     "3.14+gil",
     "3.15+gil",
 ]
 
-# Non-ABI3 wheels: each needs its own build (free-threaded and PyPy)
+# Non-ABI3 wheels: each needs its own build (free-threaded)
 NON_ABI3_VERSIONS = [
     "3.14t",
     "3.15t",
-    "pypy3.10",
-    "pypy3.11",
 ]
 
 # All versions for testing and benchmarking
@@ -159,12 +155,9 @@ def normalize_line_endings(repo_root: Path):
 def get_wheel_pattern(py_version: str, abi3: bool = False) -> str:
     """Get the glob pattern for finding a wheel file."""
     if abi3:
-        # ABI3 wheels always use cp310-abi3 tag (minimum supported version)
+        # ABI3 wheels always use cp312-abi3 tag (minimum supported version)
         # regardless of which Python version was used to build
-        return "aeg-*-cp310-abi3-*.whl"
-    elif py_version.startswith("pypy"):
-        # PyPy wheels use pp3XX format
-        return f"aeg-*-pp{py_version.replace('pypy', '').replace('.', '')}-*.whl"
+        return "aeg-*-cp312-abi3-*.whl"
     elif py_version.endswith("t"):
         # Free-threaded Python wheels use cpXXX-cpXXXt format (e.g., cp314-cp314t)
         base_version = py_version.replace(".", "").replace("t", "")
@@ -183,7 +176,7 @@ def build_abi3_wheel(dist_dir: Path, py_version: str) -> Path | None:
     if not run_command(cmd, env=get_build_env()):
         return None
 
-    # Find the ABI3 wheel (always tagged cp310-abi3 regardless of build Python version)
+    # Find the ABI3 wheel (always tagged cp312-abi3 regardless of build Python version)
     wheel_pattern = get_wheel_pattern(py_version, abi3=True)
     wheels = list(dist_dir.glob(wheel_pattern))
     if not wheels:
