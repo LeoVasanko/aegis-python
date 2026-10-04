@@ -79,10 +79,6 @@ The MAC tag is handled separately of ciphertext:
 - encrypt_detached(key, nonce, message, ad=None, maclen=16, ct_into=None, mac_into=None) -> (ct, mac)
 - decrypt_detached(key, nonce, ct, mac, ad=None, into=None) -> plaintext
 
-No MAC tag, vulnerable to alterations:
-- encrypt_unauthenticated(key, nonce, message, into=None) -> ciphertext  (testing only)
-- decrypt_unauthenticated(key, nonce, ct, into=None) -> plaintext        (testing only)
-
 ### Incremental AEAD
 
 Stateful classes that can be used for processing the data in separate chunks:
@@ -116,6 +112,7 @@ The `Mac` class follows the Python hashlib API for compatibility with code expec
 Useful for creating pseudo random bytes as rapidly as possible. Reuse of the same (key, nonce) creates identical output.
 
 - stream(key, nonce=None, length=None, into=None) -> randombytes
+- stream_xor(key, nonce, data, into=None) -> data XOR keystream (unauthenticated; encrypts and decrypts)
 
 ### Miscellaneous
 
@@ -311,7 +308,7 @@ pt = ciph.decrypt(key, nonce, ct, into=buf)
 print(bytes(pt))
 ```
 
-Detached and unauthenticated modes can use same size input and output (no MAC added to ciphertext). Detached encryption instead of `into` takes `ct_into` and `mac_into` separately and returns memoryviews to both.
+Detached mode can use same size input and output (no MAC added to ciphertext). Detached encryption instead of `into` takes `ct_into` and `mac_into` separately and returns memoryviews to both.
 
 ## Performance
 

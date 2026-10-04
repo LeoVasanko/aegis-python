@@ -100,7 +100,15 @@ class Cipher(Protocol):
         into: "Buffer | None" = None,
     ) -> "bytearray | Buffer": ...
     @staticmethod
-    def encrypt_unauthenticated(
+    def stream_xor(
+        key: "Buffer",
+        nonce: "Buffer",
+        data: "Buffer",
+        *,
+        into: "Buffer | None" = None,
+    ) -> bytearray | memoryview: ...
+    @staticmethod
+    def encrypt_unauthenticated(  # deprecated: use stream_xor
         key: "Buffer",
         nonce: "Buffer",
         message: "Buffer",
@@ -108,7 +116,7 @@ class Cipher(Protocol):
         into: "Buffer | None" = None,
     ) -> bytearray | memoryview: ...
     @staticmethod
-    def decrypt_unauthenticated(
+    def decrypt_unauthenticated(  # deprecated: use stream_xor
         key: "Buffer",
         nonce: "Buffer",
         ct: "Buffer",

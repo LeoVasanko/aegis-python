@@ -5,6 +5,7 @@
 import errno
 import sys
 import threading
+import warnings
 from typing import Literal
 
 from ._loader import ffi
@@ -378,6 +379,55 @@ def stream(
     return out if into is None else memoryview(out)[: length or memoryview(out).nbytes]  # type: ignore
 
 
+def stream_xor(
+    key: Buffer,
+    nonce: Buffer,
+    data: Buffer,
+    *,
+    into: Buffer | None = None,
+) -> bytearray | memoryview:
+    """XOR data with the keystream from stream(); encrypts and decrypts.
+
+    Unauthenticated: only use when the data is authenticated some other
+    way. Never reuse a nonce with the same key.
+
+    Args:
+        key: Secret key (generate with random_key()).
+        nonce: Public nonce (generate with random_nonce()).
+        data: Input bytes to XOR.
+        into: Buffer to write the output into (default: bytearray created).
+
+    Returns:
+        Output as bytearray if into not provided, memoryview of into otherwise.
+
+    Raises:
+        TypeError: If lengths are invalid.
+    """
+    key = memoryview(key)
+    nonce = memoryview(nonce)
+    data = memoryview(data)
+    if into is not None:
+        into = memoryview(into)
+    if key.nbytes != KEYBYTES:
+        raise TypeError(f"key length must be {KEYBYTES}")
+    if nonce.nbytes != NONCEBYTES:
+        raise TypeError(f"nonce length must be {NONCEBYTES}")
+    if into is None:
+        out = bytearray(data.nbytes)
+    else:
+        if into.nbytes < data.nbytes:
+            raise TypeError("into length must be at least data.nbytes")
+        out = into
+    _lib.aegis128x4_stream_xor(
+        ffi.from_buffer(out),
+        _ptr(data),
+        data.nbytes,
+        _ptr(nonce),
+        _ptr(key),
+    )
+    return out if into is None else memoryview(out)[: data.nbytes]  # type: ignore
+
+
 def encrypt_unauthenticated(
     key: Buffer,
     nonce: Buffer,
@@ -386,6 +436,10 @@ def encrypt_unauthenticated(
     into: Buffer | None = None,
 ) -> bytearray | memoryview:
     """Encrypt message without authentication (for testing/debugging).
+
+    .. deprecated::
+        Use stream_xor() in new code. Its output is different, so keep
+        this only for data in the old format.
 
     Args:
         key: Secret key (generate with random_key()).
@@ -399,6 +453,12 @@ def encrypt_unauthenticated(
     Raises:
         TypeError: If lengths are invalid.
     """
+    warnings.warn(
+        "encrypt_unauthenticated is deprecated; use stream_xor "
+        "(its output differs, so keep this only for existing data)",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     key = memoryview(key)
     nonce = memoryview(nonce)
     message = memoryview(message)
@@ -433,6 +493,10 @@ def decrypt_unauthenticated(
 ) -> bytearray | memoryview:
     """Decrypt ciphertext without authentication (for testing/debugging).
 
+    .. deprecated::
+        Use stream_xor() in new code. Its output is different, so keep
+        this only for data in the old format.
+
     Args:
         key: Secret key (same key used during encryption).
         nonce: Public nonce (same nonce used during encryption).
@@ -445,6 +509,12 @@ def decrypt_unauthenticated(
     Raises:
         TypeError: If lengths are invalid.
     """
+    warnings.warn(
+        "decrypt_unauthenticated is deprecated; use stream_xor "
+        "(its output differs, so keep this only for existing data)",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     key = memoryview(key)
     nonce = memoryview(nonce)
     ct = memoryview(ct)
@@ -1122,6 +1192,7 @@ __all__ = [
     "encrypt",
     "decrypt",
     "stream",
+    "stream_xor",
     "encrypt_unauthenticated",
     "decrypt_unauthenticated",
     "mac",
