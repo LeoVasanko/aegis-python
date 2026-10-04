@@ -125,7 +125,7 @@ Constants (per module): NAME, KEYBYTES, NONCEBYTES, MACBYTES, MACBYTES_LONG, RAT
 
 ### Random Generator (CSPRNG)
 
-Seeded once from the OS with random key and nonce, then a cryptographically secure AEGIS keystream: each call increments the nonce, so no output block ever repeats. `random_key()` and `random_nonce()` draw from it. The into variant can directly fill Numpy integer arrays and other structures that support Buffer API, making it far faster than any alternatives (e.g. Numpy's own random module).
+Seeded once from the OS, then a cryptographically secure AEGIS keystream with thread local key/nonce making it thread safe. `random_key()` and `random_nonce()` draw from it. The into variant can directly fill Numpy integer arrays and other structures that support Buffer API, making it far faster than any alternatives (e.g. Numpy's own random module).
 
 - random().bytes(n) -> bytearray
 - random().into(buffer) -> None
